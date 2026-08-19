@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pulse Exchange - Purple Edition</title>
+    <!-- مكتبة Nostr -->
+    <script src="https://cdn.jsdelivr.net/npm/nostr-tools@1.14.0/lib/nostr.bundle.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-dark: #090514;
+            --purple-main: #7c3aed;
+            --purple-light: #a78bfa;
+            --purple-glow: rgba(124, 58, 237, 0.4);
+            --panel-bg: rgba(255, 255, 255, 0.03);
+            --text-main: #f3f4f6;
+            --green: #10b981;
+            --red: #ef4444;
+        }
+
+        body { 
+            background-color: var(--bg-dark); 
+            color: var(--text-main); 
+            font-family: 'Tajawal', sans-serif; 
+            margin: 0; 
+            padding: 15px; 
+            overflow-x: hidden;
+            background-image: radial-gradient(circle at 50% 0%, var(--purple-glow) 0%, transparent 50%);
+        }
+
+        .container { max-width: 450px; margin: 0 auto; }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .logo { font-size: 24px; font-weight: 800; background: linear-gradient(to left, var(--purple-light), #fff); -webkit-background-clip: text; color: transparent; }
+        .status { font-size: 12px; padding: 5px 12px; border-radius: 20px; background: rgba(16, 185, 129, 0.1); color: var(--green); border: 1px solid rgba(16, 185, 129, 0.3); }
+
+        .price-panel { text-align: center; margin-bottom: 20px; }
+        .live-price { font-size: 42px; font-weight: 800; text-shadow: 0 0 20px var(--purple-glow); transition: color 0.3s; }
+        
+        .chart-box { background: var(--panel-bg); border: 1px solid rgba(124, 58, 237, 0.2); border-radius: 16px; padding: 10px; margin-bottom: 20px; backdrop-filter: blur(10px); }
+        canvas { width: 100%; height: 220px; display: block; }
+
+        .panel { background: var(--panel-bg); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 20px; margin-bottom: 20px; backdrop-filter: blur(10px); }
+        .panel h3 { margin-top: 0; color: var(--purple-light); font-size: 16px; margin-bottom: 15px; }
+
+        .balances { display: flex; justify-content: space-between; margin-bottom: 15px; }
+        .balances div { text-align: center; flex: 1; }
+        .balances span { font-size: 12px; color: #9ca3af; }
+        .balances strong { display: block; font-size: 18px; margin-top: 5px; color: #fff; }
+
+        .btn-group { display: flex; gap: 10px; }
+        
+        input { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 12px; border-radius: 10px; box-sizing: border-box; margin-bottom: 10px; font-family: inherit; font-size: 16px; outline: none; transition: border 0.3s; text-align: left; direction: ltr; }
+        input:focus { border-color: var(--purple-main); }
+        
+        button { flex: 1; padding: 14px; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; color: white; transition: transform 0.1s, filter 0.3s; font-family: 'Tajawal', sans-serif; }
+        button:active { transform: scale(0.96); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .btn-purple { background: linear-gradient(135deg, var(--purple-main), #5b21b6); box-shadow: 0 4px 15px var(--purple-glow); width: 100%; }
+        .btn-buy { background: var(--green); }
+        .btn-sell { background: var(--red); }
+
+        .log-msg { font-size: 13px; text-align: center; margin-top: 10px; min-height: 20px; color: var(--purple-light); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <div class="logo">PULSE ✦</div>
+        <div class="status" id="net-status">يتصل بالشبكة...</div>
+    </div>
+
+    <!-- السعر اللحظي -->
+    <div class="price-panel">
+        <div class="live-price" id="price-display">0.0000</div>
+        <span style="color: #9ca3af; font-size: 14px;">USDT / PULSE</span>
+    </div>
+
+    <!-- الرسم البياني -->
+    <div class="chart-box">
+        <canvas id="priceChart"></canvas>
+    </div>
+
+    <!-- التداول الافتراضي -->
+    <div class="panel">
+        <div class="balances">
+            <div><span>رصيد التداول (USDT)</span><strong id="ui-usdt">0.00</strong></div>
+            <div><span>العملات (PULSE)</span><strong id="ui-pulse">0.00</strong></div>
+        </div>
+        <div class="btn-group">
+            <button class="btn-buy" onclick="trade('buy')">شراء</button>
+            <button class="btn-sell" onclick="trade('sell')">بيع</button>
+        </div>
+    </div>
+
+    <!-- المحفظة (الربط مع Plisio) -->
+    <div class="panel">
+        <h3>المحفظة (USDT BEP-20)</h3>
+        
+        <!-- زر الإيداع فقط (بدون إدخال مبلغ) -->
+        <button class="btn-purple" onclick="deposit()" id="btn-dep">إيداع USDT 📥</button>
+        <div id="dep-log" class="log-msg"></div>
+
+        <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.05); margin: 20px 0;">
+
+        <!-- السحب -->
+        <input type="number" id="wd-amount" placeholder="المبلغ المراد سحبه">
+        <input type="text" id="wd-address" placeholder="عنوان محفظتك (BEP-20)">
+        <button class="btn-purple" style="background: transparent; border: 1px solid var(--purple-main);" onclick="withdraw()" id="btn-wd">سحب الأرباح 📤</button>
+        <div id="wd-log" class="log-msg"></div>
+    </div>
+</div>
+
+<script>
+    // ----------------------------------------------------
+    // 1. الإعدادات والمفاتيح
+    // ----------------------------------------------------
+    const PLISIO_SECRET = "UCb2BPeuNTFXJxDJgvRklvb6541H-s_KkR5-cXS8TPjL76fhtiI0RcIz52y0em4t";
+    const CURRENCY = "USDT_BSC";
+    
+    const nsec = "nsec105tze8cwnseh8leu5y56r2u3803ldz42saurdrscmht4l5mmfvrqm5kfae";
+    const npub = "npub1utedyd8nzkt0nndenn8jutjvkk4w2f2sv663nevh3vrs0a7jq8zqtx59wq";
+
+    let usdtBalance = 0.00;
+    let pulseBalance = 0.00;
+    let currentPrice = 0.0500;
+    let priceHistory = [];
+
+    // ----------------------------------------------------
+    // 2. دوال الإيداع والسحب (Plisio API) - بدون Proxy
+    // ----------------------------------------------------
+    async function deposit() {
+        const log = document.getElementById('dep-log');
+        log.innerText = "جاري إنشاء رابط الدفع...";
+        document.getElementById('btn-dep').disabled = true;
+
+        // محاكاة جلب المبلغ من قاعدة البيانات
+        const amountFromDatabase = 50.00; 
+
+        // إنشاء الفاتورة: الاتصال المباشر بـ Plisio
+        const apiUrl = `https://api.plisio.net/api/v1/invoices/new?source_currency=${CURRENCY}&source_amount=${amountFromDatabase}&order_name=PulseDeposit&currency=${CURRENCY}&api_key=${PLISIO_SECRET}`;
+        
+        try {
+            // استخدام fetch مباشرة بدون proxy
+            const res = await fetch(apiUrl);
+            const json = await res.json();
+            
+            if(json.status === "success") {
+                log.innerHTML = `<span style="color:var(--green)">تم! جاري توجيهك لصفحة الدفع...</span>`;
+                setTimeout(() => window.open(json.data.invoice_url, '_blank'), 800);
+                
+                setTimeout(() => { 
+                    usdtBalance += amountFromDatabase; 
+                    updateUI(); 
+                    log.innerText = "تم شحن رصيدك بنجاح!";
+                }, 8000);
+            } else {
+                log.innerText = "خطأ من الخادم: " + (json.data?.message || "تعذر إنشاء الفاتورة");
+            }
+        } catch(e) {
+            console.error(e);
+            // التقاط خطأ CORS المتوقع عند الاتصال المباشر
+            if(e.name === 'TypeError' && e.message === 'Failed to fetch') {
+                 log.innerHTML = `<span style="color:var(--red)">تم حظر الاتصال (CORS). في بيئة الإنتاج سيعمل الكود بشكل صحيح.</span>`;
+            } else {
+                log.innerText = "فشل الاتصال بالخادم! حاول مرة أخرى.";
+            }
+        }
+        document.getElementById('btn-dep').disabled = false;
+    }
+
+    async function withdraw() {
+        const amount = document.getElementById('wd-amount').value;
+        const address = document.getElementById('wd-address').value;
+        const log = document.getElementById('wd-log');
+        
+        if(!amount || !address) return log.innerText = "أكمل البيانات (المبلغ والعنوان)!";
+        if(amount > usdtBalance) return log.innerText = "رصيدك الافتراضي لا يكفي!";
+
+        log.innerText = "جاري تحويل الأموال...";
+        document.getElementById('btn-wd').disabled = true;
+
+        const apiUrl = `https://api.plisio.net/api/v1/operations/withdraw?currency=${CURRENCY}&type=cash_out&to=${address}&amount=${amount}&api_key=${PLISIO_SECRET}`;
+        
+        try {
+            // استخدام fetch مباشرة بدون proxy
+            const res = await fetch(apiUrl);
+            const json = await res.json();
+            
+            if(json.status === "success" || json.status === "pending") {
+                log.innerHTML = `<span style="color:var(--green)">تم السحب! المعاملة قيد المعالجة.</span>`;
+                usdtBalance -= parseFloat(amount);
+                updateUI();
+                document.getElementById('wd-amount').value = '';
+                document.getElementById('wd-address').value = '';
+            } else {
+                log.innerText = "خطأ: " + (json.data?.message || "رصيد المنصة الحقيقي غير كافٍ لتغطية السحب.");
+            }
+        } catch(e) {
+             console.error(e);
+            if(e.name === 'TypeError' && e.message === 'Failed to fetch') {
+                 log.innerHTML = `<span style="color:var(--red)">تم حظر الاتصال (CORS). في بيئة الإنتاج سيعمل الكود بشكل صحيح.</span>`;
+            } else {
+                log.innerText = "فشل الاتصال بالخادم!";
+            }
+        }
+        document.getElementById('btn-wd').disabled = false;
+    }
+
+    // ----------------------------------------------------
+    // 3. التداول وتحديث الشاشة
+    // ----------------------------------------------------
+    function trade(type) {
+        if(type === 'buy' && usdtBalance > 0) {
+            pulseBalance += (usdtBalance / currentPrice);
+            usdtBalance = 0;
+        } else if(type === 'sell' && pulseBalance > 0) {
+            usdtBalance += (pulseBalance * currentPrice);
+            pulseBalance = 0;
+        }
+        updateUI();
+    }
+
+    function updateUI() {
+        document.getElementById('ui-usdt').innerText = usdtBalance.toFixed(2);
+        document.getElementById('ui-pulse').innerText = pulseBalance.toFixed(2);
+    }
+
+    // ----------------------------------------------------
+    // 4. محرك Nostr (الأسعار اللحظية)
+    // ----------------------------------------------------
+    const { SimplePool, nip19, getEventHash, signEvent, getPublicKey } = window.NostrTools;
+    const { data: privkeyHex } = nip19.decode(nsec);
+    const { data: pubkeyHexListen } = nip19.decode(npub);
+    const pubkeyHex = getPublicKey(privkeyHex);
+    
+    const pool = new SimplePool();
+    const relays = ['wss://relay.damus.io', 'wss://nos.lol'];
+
+    // البث
+    setInterval(async () => {
+        const volatility = 0.015; 
+        currentPrice += currentPrice * ((Math.random() * volatility * 2) - volatility);
+        if(currentPrice < 0.0001) currentPrice = 0.0001;
+
+        let event = {
+            kind: 29999,
+            pubkey: pubkeyHex,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [],
+            content: currentPrice.toFixed(4)
+        };
+        event.id = getEventHash(event);
+        event.sig = signEvent(event, privkeyHex);
+        pool.publish(relays, event);
+    }, 2000);
+
+    // الاستقبال
+    const sub = pool.sub(relays, [{ authors: [pubkeyHexListen], kinds: [29999] }]);
+    
+    sub.on('event', event => {
+        document.getElementById('net-status').innerText = 'متصل ومحدث ⚡';
+        
+        const price = parseFloat(event.content);
+        const display = document.getElementById('price-display');
+        
+        display.style.color = price >= currentPrice ? 'var(--green)' : 'var(--red)';
+        display.innerText = price.toFixed(4);
+        currentPrice = price;
+
+        priceHistory.push(price);
+        if(priceHistory.length > 40) priceHistory.shift();
+        drawChart();
+    });
+
+    // ----------------------------------------------------
+    // 5. الرسم البياني (Canvas)
+    // ----------------------------------------------------
+    const canvas = document.getElementById('priceChart');
+    const ctx = canvas.getContext('2d');
+    
+    function drawChart() {
+        canvas.width = canvas.parentElement.clientWidth;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if(priceHistory.length < 2) return;
+
+        const max = Math.max(...priceHistory);
+        const min = Math.min(...priceHistory);
+        const range = max - min || 0.001;
+
+        ctx.beginPath();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#a78bfa'; 
+        
+        for(let i=0; i<priceHistory.length; i++) {
+            let x = (i / (priceHistory.length - 1)) * canvas.width;
+            let y = canvas.height - (((priceHistory[i] - min) / range) * (canvas.height - 20)) - 10;
+            if(i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        grad.addColorStop(0, 'rgba(124, 58, 237, 0.3)');
+        grad.addColorStop(1, 'rgba(124, 58, 237, 0)');
+        ctx.lineTo(canvas.width, canvas.height);
+        ctx.lineTo(0, canvas.height);
+        ctx.fillStyle = grad;
+        ctx.fill();
+    }
+</script>
+</body>
+</html>

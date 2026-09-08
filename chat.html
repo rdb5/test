@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>محادثة — Ghost</title>
+<link rel="stylesheet" href="css/style.css">
+<meta name="theme-color" content="#000000">
+</head>
+<body>
+  <div class="app-shell" style="padding-bottom:0">
+    <div class="chat-header">
+      <button class="icon-btn" onclick="leaveChat()">→</button>
+      <div class="avatar" id="hdrAvatar" style="width:38px;height:38px;font-size:14px">?</div>
+      <div class="info">
+        <div class="name" id="hdrName">...</div>
+        <div class="presence" id="hdrPresence">غير متصل</div>
+      </div>
+      <button class="icon-btn" onclick="openMenu()">⋮</button>
+    </div>
+
+    <!-- Call gate: shown until a live P2P/WebRTC channel is open -->
+    <div id="callGate" class="call-gate">
+      <button id="ringBtn" class="ring-btn">📞</button>
+      <div id="ringStatus" class="tagline">اضغط للاتصال — سيصل إشعار فوري للطرف الآخر</div>
+    </div>
+
+    <!-- Live conversation -->
+    <div id="messages" class="messages" style="display:none"></div>
+
+    <div id="composer" class="composer" style="display:none">
+      <button class="icon-btn" onclick="openAttachSheet()">📎</button>
+      <textarea id="textInput" rows="1" placeholder="اكتب رسالة..."></textarea>
+      <button class="send-btn" onclick="sendText()">➤</button>
+    </div>
+  </div>
+
+  <!-- Menu sheet -->
+  <div id="menuSheet" class="sheet-backdrop" onclick="closeSheetIfBackdrop(event,'menuSheet')">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <h2 id="menuName">الخيارات</h2>
+      <button class="btn secondary" onclick="renamePrompt()">تعديل اسمي المعروض للجميع</button>
+      <button class="btn secondary" style="margin-top:10px" onclick="blockContact()">🚫 حظر هذا الشخص</button>
+      <button class="btn danger" style="margin-top:10px" onclick="removeContact()">🗑 حذف جهة الاتصال نهائياً (للطرفين)</button>
+      <button class="btn ghost" style="margin-top:10px" onclick="closeSheet('menuSheet')">إغلاق</button>
+    </div>
+  </div>
+
+  <!-- Attach sheet -->
+  <div id="attachSheet" class="sheet-backdrop" onclick="closeSheetIfBackdrop(event,'attachSheet')">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <h2>إرسال ملف / صورة</h2>
+      <input id="fileInput" type="file" accept="image/*,video/*,*/*" style="display:none">
+      <button class="btn secondary" onclick="document.getElementById('fileInput').click()">اختر ملفاً من الجهاز</button>
+      <div class="sheet-row"><span>السماح للطرف الآخر بالتنزيل</span>
+        <input type="checkbox" id="allowDownload" checked style="width:20px;height:20px">
+      </div>
+      <div class="sheet-row"><span>رسالة مؤقتة (Flame 🔥)</span>
+        <input type="checkbox" id="flameEnabled" style="width:20px;height:20px">
+      </div>
+      <div id="flameOpts" style="display:none">
+        <div class="sheet-row"><span class="lbl">عدد ثواني العرض</span>
+          <input type="number" id="flameSeconds" value="8" min="1" max="60" class="field" style="width:80px;margin:0">
+        </div>
+        <div class="sheet-row"><span class="lbl">عدد مرات الفتح المسموحة</span>
+          <input type="number" id="flameViews" value="1" min="1" max="10" class="field" style="width:80px;margin:0">
+        </div>
+        <div class="warn-box">لا يمكن ضمان منع التقاط الشاشة أو التسجيل تقنياً على الويب من طرف ثالث — هذه ميزة "رسالة مؤقتة" لتقليل بقاء الأثر، وليست حماية مطلقة.</div>
+      </div>
+      <div id="pendingFileInfo" class="tagline"></div>
+    </div>
+  </div>
+
+  <!-- Flame full-screen viewer -->
+  <div id="flameViewer" class="flame-viewer" style="display:none">
+    <button class="flame-close" onclick="closeFlameViewer()">✕</button>
+    <div id="flameContent"></div>
+    <div class="flame-timer" id="flameTimerLabel"></div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="js/store.js"></script>
+  <script type="module">
+    import * as NostrTools from 'https://esm.sh/nostr-tools@2.10.4';
+    window.NostrTools = NostrTools;
+  </script>
+  <script src="js/nostr-signal.js"></script>
+  <script src="js/webrtc-p2p.js"></script>
+  <script src="js/chat-ephemeral.js"></script>
+  <script src="js/media-flame.js"></script>
+  <script>
+    let identity, contact, signal, p2p, chat, pendingFile, ringRetryTimer, hideGraceTimer;
+
+    const params = new URLSearchParams(location.search);
+    const peerPub = params.get('pub');
+
+    function showToast(msg, ms = 2500) {
+      const t = document.getElementById('toast');
+      t.textContent = msg; t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), ms);
+    }
+
+    function setConnectedUI(connected) {
+      document.getElementById('callGate').style.display = connected ? 'none' : 'flex';
+      document.getElementById('messages').style.display = connected ? 'flex' : 'none';
+      document.getElementById('composer').style.display = connected ? 'flex' : 'none';
+      document.getElementById('hdrPresence').textContent = connected ? 'متصل الآن — مباشر' : 'غير متصل';
+      document.getElementById('hdrPresence').classList.toggle('online', connected);
+      document.getElementById('ringBtn').classList.remove('ringing');
+      clearInterval(ringRetryTimer);
+    }
+
+    function renderMessages() {
+      if (!chat || !chat.messages) return;
+      const box = document.getElementById('messages');
+      box.innerHTML = chat.messages.map(renderMsg).join('');
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function renderMsg(m) {
+      if (m.type === MSG_TYPES.MSG_RECEIPT) return `<div class="bubble receipt">${escapeHtml(m.text)}</div>`;
+      if (m.type === MSG_TYPES.MSG_TEXT) return `<div class="bubble ${m.from}">${escapeHtml(m.text)}</div>`;
+      if (m.type === MSG_TYPES.MSG_FLAME) {
+        if (m.expired) return `<div class="bubble ${m.from}"><div class="flame-locked">🔥 <span>انتهت صلاحية هذه الرسالة</span></div></div>`;
+        return `<div class="bubble ${m.from}"><div class="flame-locked" onclick="openFlame('${m.id}')">
+          <span class="flame-icon">🔥</span><span>اضغط للعرض (${(m.flame?.maxViews||1) - (m.viewed||0)} متبقية)</span></div></div>`;
+      }
+      if (m.type === MSG_TYPES.MSG_FILE) {
+        const isImg = (m.mime || '').startsWith('image/');
+        const isVid = (m.mime || '').startsWith('video/');
+        const url = m.blobUrl || (m.blob ? (m.blobUrl = URL.createObjectURL(m.blob)) : '');
+        let media = '';
+        if (isImg) media = `<img src="${url}">`;
+        else if (isVid) media = `<video src="${url}" controls></video>`;
+        else media = `<div class="file-chip">📄 ${escapeHtml(m.name)}</div>`;
+        const dl = (m.from === 'them' && m.allowDownload) ? `<div style="margin-top:6px"><button class="link-btn" onclick="downloadMedia('${m.id}')">⬇ تنزيل</button></div>` : '';
+        return `<div class="bubble ${m.from}">${media}${dl}</div>`;
+      }
+      return '';
+    }
+
+    function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+    function sendText() {
+      const input = document.getElementById('textInput');
+      const val = input.value.trim();
+      if (!val || !chat) return;
+      chat.sendText(val);
+      input.value = '';
+      renderMessages();
+    }
+    document.getElementById('textInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendText(); }
+    });
+
+    function openAttachSheet() { document.getElementById('attachSheet').classList.add('open'); }
+    function openMenu() { document.getElementById('menuSheet').classList.add('open'); }
+    function closeSheet(id) { document.getElementById(id).classList.remove('open'); }
+    function closeSheetIfBackdrop(e, id) { if (e.target.id === id) closeSheet(id); }
+
+    document.getElementById('flameEnabled').addEventListener('change', (e) => {
+      document.getElementById('flameOpts').style.display = e.target.checked ? 'block' : 'none';
+    });
+
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+      pendingFile = e.target.files[0];
+      if (pendingFile) {
+        document.getElementById('pendingFileInfo').textContent = `تم اختيار: ${pendingFile.name}`;
+        sendPendingFile();
+      }
+    });
+
+    async function sendPendingFile() {
+      if (!pendingFile || !chat) return;
+      const allowDownload = document.getElementById('allowDownload').checked;
+      const flameOn = document.getElementById('flameEnabled').checked;
+      const flame = flameOn ? {
+        seconds: parseInt(document.getElementById('flameSeconds').value) || 8,
+        maxViews: parseInt(document.getElementById('flameViews').value) || 1
+      } : null;
+      await chat.sendMedia(pendingFile, { allowDownload, flame });
+      pendingFile = null;
+      document.getElementById('fileInput').value = '';
+      document.getElementById('pendingFileInfo').textContent = '';
+      closeSheet('attachSheet');
+      renderMessages();
+    }
+
+    function openFlame(msgId) {
+      const msg = chat.messages.find(m => m.id === msgId);
+      if (!msg) return;
+      const viewer = new FlameViewer(msg, onFlameExpire, onScreenshotSuspected);
+      const ok = viewer.open((url, mime) => {
+        const content = document.getElementById('flameContent');
+        content.innerHTML = mime.startsWith('video/') ? `<video src="${url}" autoplay controls></video>` : `<img src="${url}">`;
+        document.getElementById('flameViewer').style.display = 'flex';
+        let remaining = msg.flame?.seconds ?? 8;
+        document.getElementById('flameTimerLabel').textContent = `${remaining} ث`;
+        window._flameTick = setInterval(() => {
+          remaining--; document.getElementById('flameTimerLabel').textContent = `${remaining} ث`;
+          if (remaining <= 0) clearInterval(window._flameTick);
+        }, 1000);
+      });
+      window._activeFlameViewer = viewer;
+      if (!ok) showToast('انتهت صلاحية هذه الرسالة');
+    }
+    function onFlameExpire() {
+      clearInterval(window._flameTick);
+      document.getElementById('flameViewer').style.display = 'none';
+      renderMessages();
+    }
+    function onScreenshotSuspected(reason) {
+      showToast('⚠️ تم إغلاق الرسالة المؤقتة (اشتباه بمحاولة تصوير الشاشة)');
+    }
+    function closeFlameViewer() { if (window._activeFlameViewer) window._activeFlameViewer.closeEarly(); }
+
+    async function downloadMedia(msgId) {
+      const msg = chat.messages.find(m => m.id === msgId);
+      if (!msg) return;
+      const url = msg.blobUrl || URL.createObjectURL(msg.blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = msg.name || 'file'; a.click();
+      chat.notifyDownloaded(msg.id, msg.name);
+      showToast('تم إخبار الطرف الآخر أنك قمت بالتنزيل');
+    }
+
+    function startCall() {
+      document.getElementById('ringBtn').classList.add('ringing');
+      document.getElementById('ringStatus').textContent = 'جاري الاتصال... بانتظار استجابة الطرف الآخر';
+      signal.ring(peerPub);
+      p2p.initiate();
+      let attempts = 0;
+      ringRetryTimer = setInterval(() => {
+        attempts++;
+        if (p2p.connected || attempts > 6) { clearInterval(ringRetryTimer); return; }
+        p2p.initiate(); // re-send offer in case peer's app was still opening
+      }, 3000);
+    }
+    document.getElementById('ringBtn').addEventListener('click', startCall);
+
+    function onP2POpen() {
+      setConnectedUI(true);
+      signal.sendPresence(peerPub);
+      window._presenceInterval = setInterval(() => signal.sendPresence(peerPub), 20000);
+      contact.online = true; contact.lastActivity = Date.now();
+      Store.upsertContact(contact);
+      renderMessages();
+    }
+
+    function onP2PClose() {
+      clearInterval(window._presenceInterval);
+      setConnectedUI(false);
+      document.getElementById('ringStatus').textContent = 'أُنهيت المحادثة — اضغط للاتصال من جديد';
+      contact.online = false;
+      Store.upsertContact(contact);
+      if (chat) { chat.destroy(false); chat = null; }
+    }
+
+    function renamePrompt() {
+      const name = prompt('اسمك الجديد (سيظهر لجميع جهات اتصالك):', identity.name);
+      if (name && name.trim()) {
+        identity.name = name.trim();
+        Store.saveIdentity(identity);
+        showToast('تم تحديث اسمك');
+      }
+      closeSheet('menuSheet');
+    }
+
+    async function blockContact() {
+      if (!confirm('حظر هذا الشخص؟ لن يتمكن من التواصل معك مجدداً حتى برمز جديد.')) return;
+      await Store.block(peerPub);
+      await Store.deleteContact(peerPub);
+      if (p2p) p2p.hangup();
+      showToast('تم الحظر');
+      setTimeout(() => location.href = 'contacts.html', 600);
+    }
+
+    async function removeContact() {
+      if (!confirm('حذف جهة الاتصال نهائياً من عندك ومن عنده؟')) return;
+      try { await signal.sendBye(peerPub); await signal._publishEphemeral(SIGNAL_KINDS.KIND_BYE, peerPub, { removeContact: true }); } catch(e) {}
+      await Store.deleteContact(peerPub);
+      if (p2p) p2p.hangup();
+      showToast('تم الحذف');
+      setTimeout(() => location.href = 'contacts.html', 600);
+    }
+
+    function leaveChat() {
+      cleanupAndExit();
+      location.href = 'contacts.html';
+    }
+
+    function cleanupAndExit() {
+      clearInterval(window._presenceInterval);
+      clearInterval(ringRetryTimer);
+      if (chat) { chat.destroy(true); chat = null; }
+      else if (p2p) { p2p.hangup(); }
+      if (signal) signal.stop();
+    }
+
+    // "Leaving" per the spec = backgrounding too, with a short grace period
+    // to avoid wiping the session just because a file/camera picker sheet
+    // briefly covers the page on some mobile browsers.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        hideGraceTimer = setTimeout(() => {
+          if (document.visibilityState === 'hidden') cleanupAndExit();
+        }, 3000);
+      } else {
+        clearTimeout(hideGraceTimer);
+      }
+    });
+    window.addEventListener('pagehide', cleanupAndExit);
+
+    async function init() {
+      identity = await Store.getIdentity();
+      if (!identity) { location.href = 'auth.html'; return; }
+      if (!peerPub) { location.href = 'contacts.html'; return; }
+      contact = await Store.getContact(peerPub);
+      if (!contact) { location.href = 'contacts.html'; return; }
+
+      document.getElementById('hdrName').textContent = contact.name || 'مجهول';
+      document.getElementById('hdrAvatar').textContent = (contact.name || '?')[0].toUpperCase();
+      document.getElementById('menuName').textContent = contact.name || 'مجهول';
+
+      signal = new NostrSignal(identity);
+      const turnPref = await Store.getPref('turnServers', []);
+      await signal.loadRelays();
+      signal.start();
+
+      p2p = new P2PConnection({
+        peerPubkey: peerPub, signal, onOpen: onP2POpen, onClose: onP2PClose,
+        onData: (raw) => { if (chat) { chat._handleIncoming(raw); renderMessages(); } },
+        turnServers: turnPref
+      });
+
+      chat = new EphemeralChat({ identity, contact: { pubkey: peerPub, name: contact.name }, p2p, signal });
+      chat.onUpdate(renderMessages);
+      chat._onPeerLeftExternal = () => { onP2PClose(); showToast(`${contact.name} غادر المحادثة`); };
+
+      signal.on(SIGNAL_KINDS.KIND_RECEIPT, ({ from, text }) => {
+        if (from === peerPub && chat) { chat.messages.push({ id: crypto.randomUUID(), type: MSG_TYPES.MSG_RECEIPT, text, ts: Date.now() }); renderMessages(); }
+      });
+      signal.on(SIGNAL_KINDS.KIND_PRESENCE, ({ from }) => {
+        if (from === peerPub) { contact.online = true; Store.upsertContact(contact); }
+      });
+
+      if (params.get('autoanswer') === '1') {
+        // We were opened from a "ring" notification - be ready to answer;
+        // the incoming offer signal (handled inside P2PConnection) will
+        // complete the connection automatically once it arrives.
+        document.getElementById('ringStatus').textContent = 'الطرف الآخر يتصل بك... جاري الاتصال تلقائياً';
+      }
+    }
+    init();
+  </script>
+</body>
+</html>

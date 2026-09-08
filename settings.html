@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>الإعدادات — Ghost</title>
+<link rel="stylesheet" href="css/style.css">
+<meta name="theme-color" content="#000000">
+</head>
+<body>
+  <div class="app-shell">
+    <div class="topbar">
+      <button class="icon-btn" onclick="location.href='contacts.html'">→</button>
+      <h1>الإعدادات</h1>
+      <div style="width:40px"></div>
+    </div>
+
+    <div style="padding:0 16px; display:flex; flex-direction:column; gap:18px">
+
+      <div>
+        <div class="sheet-row"><span class="lbl">الاسم المعروض</span></div>
+        <input id="nameField" class="field" placeholder="اسمك">
+        <button class="btn secondary" onclick="saveName()">حفظ الاسم (يتحدث فوراً عند جميع جهات الاتصال)</button>
+      </div>
+
+      <div>
+        <div class="sheet-row"><span class="lbl">مفتاحك العام (npub) — يمكن مشاركته بأمان</span></div>
+        <div class="field" id="npubField" style="word-break:break-all; user-select:text; font-size:12.5px"></div>
+      </div>
+
+      <div>
+        <div class="sheet-row"><span class="lbl">قائمة المحظورين</span></div>
+        <div id="blockList" class="list" style="flex:none;max-height:220px"></div>
+      </div>
+
+      <div>
+        <div class="sheet-row"><span class="lbl">خوادم Nostr (Relays) للإشارات فقط — لا تُخزَّن الرسائل عليها أبداً</span></div>
+        <textarea id="relaysField" class="field" rows="4" style="font-family:monospace;font-size:12.5px"></textarea>
+        <button class="btn secondary" onclick="saveRelays()">حفظ الخوادم</button>
+      </div>
+
+      <div>
+        <div class="sheet-row"><span class="lbl">خادم TURN إضافي (اختياري، لتحسين نجاح الاتصال خلف بعض الشبكات)</span></div>
+        <div class="warn-box">إضافة خادم TURN يعني أن حزم بياناتك المشفرة قد تمر عبره في حال تعذر الاتصال المباشر بين الجهازين. لا يمكنه قراءة محتوى رسائلك (لا يزال مشفراً طرفياً)، لكنها ليست "هاتف لهاتف" 100% في تلك الحالة تحديداً.</div>
+        <input id="turnUrl" class="field" placeholder="turn:example.com:3478">
+        <input id="turnUser" class="field" placeholder="اسم المستخدم (اختياري)">
+        <input id="turnPass" class="field" placeholder="كلمة المرور (اختياري)">
+        <button class="btn secondary" onclick="saveTurn()">حفظ خادم TURN</button>
+      </div>
+
+      <div>
+        <div class="sheet-row"><span class="lbl">منطقة الخطر</span></div>
+        <button class="btn danger" onclick="wipeAccount()">🗑 حذف الحساب نهائياً من هذا الجهاز</button>
+        <div class="tagline" style="margin-top:8px">سيتم حذف مفتاحك الخاص وجميع جهات اتصالك ومحظوريك من هذا الجهاز فوراً وبلا رجعة. لا توجد نسخة احتياطية على أي سيرفر.</div>
+      </div>
+
+      <div class="warn-box">
+        ℹ️ حول الحماية الحقيقية لهذا التطبيق: الرسائل والصور والملفات تُنقل مباشرة بين الجهازين عبر WebRTC
+        مشفرة من طرف إلى طرف، ولا تُخزَّن أبداً على أي خادم. تُستخدم شبكة Nostr فقط "كجرس باب" لتبادل إشارات
+        اتصال صغيرة ومشفرة بالكامل (لا محتوى رسائل إطلاقاً). لا يوجد أي نظام تشفير "غير قابل للاختراق 100%" —
+        كن حذراً من أي تطبيق يدّعي غير ذلك.
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="js/store.js"></script>
+  <script>
+    let identity;
+    function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500); }
+
+    async function saveName() {
+      const name = document.getElementById('nameField').value.trim();
+      if (!name) return;
+      identity.name = name;
+      await Store.saveIdentity(identity);
+      showToast('تم الحفظ — سيظهر اسمك الجديد عند فتح أي محادثة');
+    }
+
+    async function saveRelays() {
+      const lines = document.getElementById('relaysField').value.split('\n').map(s => s.trim()).filter(Boolean);
+      await Store.setPref('relays', lines);
+      showToast('تم حفظ الخوادم');
+    }
+
+    async function saveTurn() {
+      const url = document.getElementById('turnUrl').value.trim();
+      if (!url) { await Store.setPref('turnServers', []); showToast('تم إزالة TURN'); return; }
+      const username = document.getElementById('turnUser').value.trim();
+      const credential = document.getElementById('turnPass').value.trim();
+      await Store.setPref('turnServers', [{ url, username, credential }]);
+      showToast('تم حفظ خادم TURN');
+    }
+
+    async function renderBlockList() {
+      const blocked = await Store.allBlocked();
+      const box = document.getElementById('blockList');
+      if (!blocked.length) { box.innerHTML = '<div class="empty-state" style="padding:20px">لا يوجد محظورين</div>'; return; }
+      box.innerHTML = blocked.map(b => `
+        <div class="contact-row">
+          <div class="avatar">🚫</div>
+          <div class="contact-meta"><div class="contact-name" style="font-size:12px">${b.pubkey.slice(0,16)}...</div></div>
+          <button class="link-btn" onclick="unblock('${b.pubkey}')">إلغاء الحظر</button>
+        </div>`).join('');
+    }
+    async function unblock(pub) { await Store.unblock(pub); renderBlockList(); showToast('تم إلغاء الحظر'); }
+
+    async function wipeAccount() {
+      if (!confirm('هذا سيحذف حسابك بالكامل من هذا الجهاز نهائياً. متابعة؟')) return;
+      if (!confirm('تأكيد أخير: لا يمكن التراجع عن هذا الإجراء. هل أنت متأكد؟')) return;
+      await Store.wipeEverything();
+      location.href = 'index.html';
+    }
+
+    async function init() {
+      identity = await Store.getIdentity();
+      if (!identity) { location.href = 'auth.html'; return; }
+      document.getElementById('nameField').value = identity.name;
+      document.getElementById('npubField').textContent = identity.npub;
+      const fallbackRelays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.nostr.band', 'wss://nostr.wine', 'wss://relay.snort.social'];
+      const relays = await Store.getPref('relays', fallbackRelays);
+      document.getElementById('relaysField').value = relays.join('\n');
+      const turn = await Store.getPref('turnServers', []);
+      if (turn && turn[0]) {
+        document.getElementById('turnUrl').value = turn[0].url || '';
+        document.getElementById('turnUser').value = turn[0].username || '';
+        document.getElementById('turnPass').value = turn[0].credential || '';
+      }
+      renderBlockList();
+    }
+    init();
+  </script>
+</body>
+</html>

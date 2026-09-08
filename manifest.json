@@ -1,0 +1,18 @@
+{
+  "name": "Ghost — رسائل بلا أثر",
+  "short_name": "Ghost",
+  "description": "محادثات مباشرة من هاتف إلى هاتف عبر WebRTC، بإشارات Nostr مشفرة، دون تخزين أي رسالة في أي مكان.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    { "src": "icons/icon-96.png", "sizes": "96x96", "type": "image/png" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

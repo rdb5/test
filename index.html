@@ -156,12 +156,17 @@
     </div>
 
     <!-- 2. Contacts View -->
-    <div id="view-contacts" class="view p-4 pb-20">
+    <div id="view-contacts" class="view p-4 pb-4">
         <div class="flex justify-between items-center mb-6 pt-4">
             <h2 class="text-2xl font-bold">جهات الاتصال</h2>
-            <button onclick="UI.showSettings()" class="text-gray-400 hover:text-white p-2">
-                <i class="fas fa-cog text-xl"></i>
-            </button>
+            <div class="flex space-x-3 space-x-reverse">
+                <button onclick="UI.showAddMenu()" class="text-[#32d74b] bg-gray-800 hover:bg-gray-700 w-10 h-10 rounded-full flex items-center justify-center transition shadow-lg border border-gray-700">
+                    <i class="fas fa-plus text-xl"></i>
+                </button>
+                <button onclick="UI.showSettings()" class="text-gray-400 hover:text-white p-2 w-10 h-10 flex items-center justify-center">
+                    <i class="fas fa-cog text-xl"></i>
+                </button>
+            </div>
         </div>
         
         <div id="contacts-list" class="flex-1 overflow-y-auto space-y-3">
@@ -170,15 +175,23 @@
                 لا يوجد جهات اتصال.<br>أضف شخصاً عبر رمز QR مؤقت.
             </div>
         </div>
+    </div>
 
-        <!-- Floating Action Buttons for adding contacts -->
-        <div class="absolute bottom-6 left-0 right-0 flex justify-center space-x-4 space-x-reverse px-4">
-            <button onclick="AppLogic.initiateConnect()" class="flex-1 surface hover:bg-gray-700 text-white font-bold py-4 rounded-2xl flex items-center justify-center shadow-lg transition">
-                <i class="fas fa-qrcode mr-2 ml-2"></i> عرض QR
-            </button>
-            <button onclick="UI.showScanner()" class="flex-1 surface hover:bg-gray-700 text-white font-bold py-4 rounded-2xl flex items-center justify-center shadow-lg transition">
-                <i class="fas fa-camera mr-2 ml-2"></i> مسح QR
-            </button>
+    <!-- Add Contact Menu Modal -->
+    <div id="modal-add-menu" class="hidden fixed inset-0 modal-overlay flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
+        <div class="surface w-full max-w-md p-6 rounded-t-3xl sm:rounded-2xl" style="animation: slideUp 0.3s ease-out;">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold">إضافة جهة اتصال</h3>
+                <button onclick="UI.closeAddMenu()" class="text-gray-400 hover:text-white p-2 bg-gray-800 rounded-full w-8 h-8 flex items-center justify-center"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="space-y-4">
+                <button onclick="UI.closeAddMenu(); AppLogic.initiateConnect()" class="w-full bg-[#1c1c1e] hover:bg-gray-800 text-white font-bold py-4 rounded-2xl flex items-center justify-center shadow-lg transition border border-gray-700">
+                    <i class="fas fa-qrcode mr-3 ml-3 text-[#32d74b] text-xl"></i> عرض كود QR الخاص بي
+                </button>
+                <button onclick="UI.closeAddMenu(); UI.showScanner()" class="w-full bg-[#1c1c1e] hover:bg-gray-800 text-white font-bold py-4 rounded-2xl flex items-center justify-center shadow-lg transition border border-gray-700">
+                    <i class="fas fa-camera mr-3 ml-3 text-[#32d74b] text-xl"></i> مسح كود QR من صديق
+                </button>
+            </div>
         </div>
     </div>
 
@@ -342,6 +355,8 @@
                 document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
                 document.getElementById(viewId).classList.add('active');
             },
+            showAddMenu: () => document.getElementById('modal-add-menu').classList.remove('hidden'),
+            closeAddMenu: () => document.getElementById('modal-add-menu').classList.add('hidden'),
             showSettings: () => {
                 document.getElementById('settings-name').value = State.profile.name;
                 document.getElementById('settings-npub').innerText = State.keys.npub;

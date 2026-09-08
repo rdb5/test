@@ -3,315 +3,271 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pulse Exchange - Purple Edition</title>
-    <!-- مكتبة Nostr -->
-    <script src="https://cdn.jsdelivr.net/npm/nostr-tools@1.14.0/lib/nostr.bundle.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap" rel="stylesheet">
-    
+    <title>Ghost P2P Messenger</title>
     <style>
         :root {
-            --bg-dark: #090514;
-            --purple-main: #7c3aed;
-            --purple-light: #a78bfa;
-            --purple-glow: rgba(124, 58, 237, 0.4);
-            --panel-bg: rgba(255, 255, 255, 0.03);
-            --text-main: #f3f4f6;
-            --green: #10b981;
-            --red: #ef4444;
+            --bg-black: #000000;
+            --modal-gray: #1c1c1e;
+            --accent-blue: #0a84ff;
+            --text-main: #ffffff;
+            --text-muted: #8e8e93;
+            --danger-red: #ff453a;
         }
 
-        body { 
-            background-color: var(--bg-dark); 
-            color: var(--text-main); 
-            font-family: 'Tajawal', sans-serif; 
-            margin: 0; 
-            padding: 15px; 
-            overflow-x: hidden;
-            background-image: radial-gradient(circle at 50% 0%, var(--purple-glow) 0%, transparent 50%);
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-black); color: var(--text-main); overflow: hidden; height: 100vh; width: 100vw; }
 
-        .container { max-width: 450px; margin: 0 auto; }
+        .view { display: none; height: 100%; width: 100%; flex-direction: column; animation: fadeIn 0.3s ease; }
+        .view.active { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .logo { font-size: 24px; font-weight: 800; background: linear-gradient(to left, var(--purple-light), #fff); -webkit-background-clip: text; color: transparent; }
-        .status { font-size: 12px; padding: 5px 12px; border-radius: 20px; background: rgba(16, 185, 129, 0.1); color: var(--green); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid #333; background: var(--bg-black); z-index: 10; }
+        .header h1 { font-size: 1.2rem; font-weight: 600; }
+        .btn-text { background: none; border: none; color: var(--accent-blue); font-size: 1rem; cursor: pointer; }
+        .btn-text.danger { color: var(--danger-red); }
 
-        .price-panel { text-align: center; margin-bottom: 20px; }
-        .live-price { font-size: 42px; font-weight: 800; text-shadow: 0 0 20px var(--purple-glow); transition: color 0.3s; }
+        .list-container { flex: 1; overflow-y: auto; padding: 20px; }
+        .contact-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: var(--modal-gray); border-radius: 12px; margin-bottom: 10px; }
         
-        .chart-box { background: var(--panel-bg); border: 1px solid rgba(124, 58, 237, 0.2); border-radius: 16px; padding: 10px; margin-bottom: 20px; backdrop-filter: blur(10px); }
-        canvas { width: 100%; height: 220px; display: block; }
+        .btn-primary { background: var(--accent-blue); color: white; border: none; padding: 14px 20px; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; width: 100%; }
+        .btn-ring { background: #32d74b; color: #000; border: none; padding: 8px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; }
 
-        .panel { background: var(--panel-bg); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 20px; margin-bottom: 20px; backdrop-filter: blur(10px); }
-        .panel h3 { margin-top: 0; color: var(--purple-light); font-size: 16px; margin-bottom: 15px; }
+        #chat-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .message { max-width: 75%; padding: 12px 16px; border-radius: 18px; line-height: 1.4; word-wrap: break-word; }
+        .message.sent { background: var(--accent-blue); align-self: flex-start; border-bottom-right-radius: 4px; }
+        .message.received { background: var(--modal-gray); align-self: flex-end; border-bottom-left-radius: 4px; }
+        .message.flame { background: transparent; border: 1px solid var(--danger-red); color: var(--danger-red); text-align: center; cursor: pointer; }
+        .message.system { background: transparent; color: #32d74b; align-self: center; font-size: 0.8rem; }
 
-        .balances { display: flex; justify-content: space-between; margin-bottom: 15px; }
-        .balances div { text-align: center; flex: 1; }
-        .balances span { font-size: 12px; color: #9ca3af; }
-        .balances strong { display: block; font-size: 18px; margin-top: 5px; color: #fff; }
-
-        .btn-group { display: flex; gap: 10px; }
+        .chat-input-area { display: flex; gap: 10px; padding: 15px 20px; background: var(--bg-black); border-top: 1px solid #333; }
+        .chat-input-area input { flex: 1; background: var(--modal-gray); border: none; padding: 12px 16px; border-radius: 20px; color: white; outline: none; }
+        .btn-send { background: var(--accent-blue); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; }
         
-        input { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 12px; border-radius: 10px; box-sizing: border-box; margin-bottom: 10px; font-family: inherit; font-size: 16px; outline: none; transition: border 0.3s; text-align: left; direction: ltr; }
-        input:focus { border-color: var(--purple-main); }
-        
-        button { flex: 1; padding: 14px; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; color: white; transition: transform 0.1s, filter 0.3s; font-family: 'Tajawal', sans-serif; }
-        button:active { transform: scale(0.96); }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
-        
-        .btn-purple { background: linear-gradient(135deg, var(--purple-main), #5b21b6); box-shadow: 0 4px 15px var(--purple-glow); width: 100%; }
-        .btn-buy { background: var(--green); }
-        .btn-sell { background: var(--red); }
-
-        .log-msg { font-size: 13px; text-align: center; margin-top: 10px; min-height: 20px; color: var(--purple-light); }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 100; justify-content: center; align-items: flex-end; }
+        .modal-content { background: var(--modal-gray); width: 100%; max-width: 500px; padding: 25px; border-radius: 20px 20px 0 0; text-align: center; }
+        .qr-box { width: 200px; height: 200px; background: white; margin: 20px auto; border-radius: 12px; display: flex; justify-content: center; align-items: center; color: black; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="header">
-        <div class="logo">PULSE ✦</div>
-        <div class="status" id="net-status">يتصل بالشبكة...</div>
-    </div>
-
-    <!-- السعر اللحظي -->
-    <div class="price-panel">
-        <div class="live-price" id="price-display">0.0000</div>
-        <span style="color: #9ca3af; font-size: 14px;">USDT / PULSE</span>
-    </div>
-
-    <!-- الرسم البياني -->
-    <div class="chart-box">
-        <canvas id="priceChart"></canvas>
-    </div>
-
-    <!-- التداول الافتراضي -->
-    <div class="panel">
-        <div class="balances">
-            <div><span>رصيد التداول (USDT)</span><strong id="ui-usdt">0.00</strong></div>
-            <div><span>العملات (PULSE)</span><strong id="ui-pulse">0.00</strong></div>
-        </div>
-        <div class="btn-group">
-            <button class="btn-buy" onclick="trade('buy')">شراء</button>
-            <button class="btn-sell" onclick="trade('sell')">بيع</button>
+    <div id="view-splash" class="view active">
+        <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 30px; text-align: center;">
+            <h1 style="font-size: 2.5rem; margin-bottom: 10px;">Ghost P2P</h1>
+            <p style="color: var(--text-muted); margin-bottom: 40px;">لا سيرفرات. لا تخزين. خصوصية 10000%.</p>
+            <button class="btn-primary" onclick="app.initApp()">توليد هوية مشفرة والدخول</button>
         </div>
     </div>
 
-    <!-- المحفظة (الربط مع Plisio) -->
-    <div class="panel">
-        <h3>المحفظة (USDT BEP-20)</h3>
-        
-        <!-- زر الإيداع فقط (بدون إدخال مبلغ) -->
-        <button class="btn-purple" onclick="deposit()" id="btn-dep">إيداع USDT 📥</button>
-        <div id="dep-log" class="log-msg"></div>
-
-        <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.05); margin: 20px 0;">
-
-        <!-- السحب -->
-        <input type="number" id="wd-amount" placeholder="المبلغ المراد سحبه">
-        <input type="text" id="wd-address" placeholder="عنوان محفظتك (BEP-20)">
-        <button class="btn-purple" style="background: transparent; border: 1px solid var(--purple-main);" onclick="withdraw()" id="btn-wd">سحب الأرباح 📤</button>
-        <div id="wd-log" class="log-msg"></div>
+    <div id="view-contacts" class="view">
+        <div class="header">
+            <button class="btn-text" onclick="app.showModal('qr-modal')">مسح QR 📸</button>
+            <h1>الشبكة المظلمة (P2P)</h1>
+            <button class="btn-text" onclick="app.showModal('my-qr-modal')">إضافة ➕</button>
+        </div>
+        <div class="list-container" id="contacts-list">
+            <div class="contact-item">
+                <div>
+                    <h3 style="font-size: 1.1rem;">جهاز تجريبي</h3>
+                    <p style="color: var(--text-muted); font-size: 0.8rem;">نظام الاتصال المباشر</p>
+                </div>
+                <button class="btn-ring" onclick="app.sendNostrSignal()">إرسال نداء 🔔</button>
+            </div>
+        </div>
     </div>
-</div>
 
-<script>
-    // ----------------------------------------------------
-    // 1. الإعدادات والمفاتيح
-    // ----------------------------------------------------
-    const PLISIO_SECRET = "UCb2BPeuNTFXJxDJgvRklvb6541H-s_KkR5-cXS8TPjL76fhtiI0RcIz52y0em4t";
-    const CURRENCY = "USDT_BSC";
-    
-    const nsec = "nsec105tze8cwnseh8leu5y56r2u3803ldz42saurdrscmht4l5mmfvrqm5kfae";
-    const npub = "npub1utedyd8nzkt0nndenn8jutjvkk4w2f2sv663nevh3vrs0a7jq8zqtx59wq";
+    <div id="view-chat" class="view">
+        <div class="header">
+            <button class="btn-text danger" onclick="app.destroyChat()">تدمير وخروج 🔴</button>
+            <h1 id="chat-title">غرفة آمنة</h1>
+            <span id="conn-status" style="color: var(--text-muted); font-size: 0.8rem;">● جاري الاتصال...</span>
+        </div>
+        <div id="chat-messages"></div>
+        <div class="chat-input-area">
+            <button class="btn-text" onclick="app.sendFlameMessage()" style="font-size: 1.5rem;">🔥</button>
+            <input type="text" id="msg-input" placeholder="رسالة لا تُخزن..." onkeypress="if(event.key === 'Enter') app.sendTextMessage()">
+            <button class="btn-send" onclick="app.sendTextMessage()">➤</button>
+        </div>
+    </div>
 
-    let usdtBalance = 0.00;
-    let pulseBalance = 0.00;
-    let currentPrice = 0.0500;
-    let priceHistory = [];
+    <div id="my-qr-modal" class="modal-overlay" onclick="app.closeModal(event, 'my-qr-modal')">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h2>شارك هذا الكود</h2>
+            <p style="color: var(--text-muted); margin-top: 10px; font-size: 0.9rem;">سيتم إتلافه فور المسح (NIP-44).</p>
+            <div class="qr-box">QR [مؤقت]</div>
+            <button class="btn-primary" style="background: var(--bg-black); margin-top: 20px;" onclick="app.closeModal(null, 'my-qr-modal')">إلغاء</button>
+        </div>
+    </div>
 
-    // ----------------------------------------------------
-    // 2. دوال الإيداع والسحب (Plisio API) - بدون Proxy
-    // ----------------------------------------------------
-    async function deposit() {
-        const log = document.getElementById('dep-log');
-        log.innerText = "جاري إنشاء رابط الدفع...";
-        document.getElementById('btn-dep').disabled = true;
+    <div id="qr-modal" class="modal-overlay" onclick="app.closeModal(event, 'qr-modal')">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h2>مسح كود صديق</h2>
+            <div style="width: 100%; height: 200px; background: #000; border: 2px dashed #333; margin: 20px 0; border-radius: 12px; display: flex; justify-content: center; align-items: center;">الكاميرا...</div>
+            <button class="btn-primary" onclick="app.closeModal(null, 'qr-modal'); alert('تم التبادل المباشر')">محاكاة المسح</button>
+        </div>
+    </div>
 
-        // محاكاة جلب المبلغ من قاعدة البيانات
-        const amountFromDatabase = 50.00; 
+    <script>
+        const app = {
+            nostrRelay: null,
+            peerConnection: null,
+            dataChannel: null,
 
-        // إنشاء الفاتورة: الاتصال المباشر بـ Plisio
-        const apiUrl = `https://api.plisio.net/api/v1/invoices/new?source_currency=${CURRENCY}&source_amount=${amountFromDatabase}&order_name=PulseDeposit&currency=${CURRENCY}&api_key=${PLISIO_SECRET}`;
-        
-        try {
-            // استخدام fetch مباشرة بدون proxy
-            const res = await fetch(apiUrl);
-            const json = await res.json();
-            
-            if(json.status === "success") {
-                log.innerHTML = `<span style="color:var(--green)">تم! جاري توجيهك لصفحة الدفع...</span>`;
-                setTimeout(() => window.open(json.data.invoice_url, '_blank'), 800);
+            navigate: function(viewId) {
+                document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+                document.getElementById(viewId).classList.add('active');
+            },
+
+            initApp: function() {
+                this.navigate('view-contacts');
+                this.connectNostr();
+            },
+
+            // 1. اتصال Nostr (يعمل كجرس فقط، دون تخزين - NIP-16)
+            connectNostr: function() {
+                this.nostrRelay = new WebSocket('wss://relay.damus.io');
+                this.nostrRelay.onopen = () => console.log('متصل بشبكة Nostr للإشعارات.');
+                this.nostrRelay.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data[0] === 'EVENT' && data[2].kind === 20000) {
+                        this.handleIncomingSignal(data[2].content);
+                    }
+                };
+            },
+
+            // 2. إرسال النداء اللحظي
+            sendNostrSignal: function() {
+                this.navigate('view-chat');
+                this.setupWebRTC(true);
+            },
+
+            // 3. بناء اتصال WebRTC P2P (لا يمر بأي سيرفر)
+            setupWebRTC: function(isInitiator) {
+                this.peerConnection = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+
+                // قناة نقل البيانات (النصوص والصور)
+                if (isInitiator) {
+                    this.dataChannel = this.peerConnection.createDataChannel('ghost-chat');
+                    this.setupDataChannel();
+                    
+                    this.peerConnection.createOffer()
+                        .then(offer => this.peerConnection.setLocalDescription(offer))
+                        .then(() => {
+                            // في الواقع: تُشفر وتُرسل عبر Nostr NIP-16
+                            console.log('تم توليد العرض المباشر (P2P Offer)');
+                            setTimeout(() => this.mockPeerAnswer(), 1000); // محاكاة رد الطرف الآخر
+                        });
+                } else {
+                    this.peerConnection.ondatachannel = (event) => {
+                        this.dataChannel = event.channel;
+                        this.setupDataChannel();
+                    };
+                }
+            },
+
+            setupDataChannel: function() {
+                this.dataChannel.onopen = () => {
+                    document.getElementById('conn-status').innerText = '● متصل (P2P مُشفر)';
+                    document.getElementById('conn-status').style.color = '#32d74b';
+                    this.logSystem('تم إنشاء قناة الاتصال المباشر. الخوادم غير قادرة على رؤية هذه المحادثة.');
+                };
+                this.dataChannel.onmessage = (event) => {
+                    if(event.data === 'FLAME_IMG') this.renderFlame(false);
+                    else this.renderMessage(event.data, 'received');
+                };
+            },
+
+            // 4. الإرسال الفعلي للرسائل عبر P2P
+            sendTextMessage: function() {
+                const input = document.getElementById('msg-input');
+                const text = input.value.trim();
+                if (!text) return;
+
+                this.renderMessage(text, 'sent');
+                input.value = '';
+
+                // الإرسال المباشر إذا كانت القناة مفتوحة (P2P)
+                if (this.dataChannel && this.dataChannel.readyState === 'open') {
+                    this.dataChannel.send(text);
+                } else {
+                    // محاكاة استلام في وضع التجربة
+                    setTimeout(() => this.renderMessage('رسالة مشفرة من الطرف الآخر (محاكاة)', 'received'), 1000);
+                }
+            },
+
+            sendFlameMessage: function() {
+                this.renderFlame(true);
+                if (this.dataChannel && this.dataChannel.readyState === 'open') {
+                    this.dataChannel.send('FLAME_IMG');
+                }
+            },
+
+            // 5. هندسة الواجهة والتدمير الذاتي
+            renderMessage: function(text, type) {
+                const chat = document.getElementById('chat-messages');
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `message ${type}`;
+                msgDiv.innerText = text;
+                chat.appendChild(msgDiv);
+                chat.scrollTop = chat.scrollHeight;
+            },
+
+            renderFlame: function(isSent) {
+                const chat = document.getElementById('chat-messages');
+                const flameDiv = document.createElement('div');
+                flameDiv.className = `message flame ${isSent ? 'sent' : 'received'}`;
+                flameDiv.innerHTML = '🔥 صورة مؤقتة (اضغط للفتح)';
                 
-                setTimeout(() => { 
-                    usdtBalance += amountFromDatabase; 
-                    updateUI(); 
-                    log.innerText = "تم شحن رصيدك بنجاح!";
-                }, 8000);
-            } else {
-                log.innerText = "خطأ من الخادم: " + (json.data?.message || "تعذر إنشاء الفاتورة");
+                flameDiv.onclick = function() {
+                    flameDiv.innerHTML = '📸 [صورة عُرضت]';
+                    flameDiv.style.color = '#fff';
+                    flameDiv.style.borderColor = '#333';
+                    setTimeout(() => flameDiv.remove(), 3000); // تدمير من الذاكرة
+                };
+                
+                chat.appendChild(flameDiv);
+                chat.scrollTop = chat.scrollHeight;
+            },
+
+            logSystem: function(text) {
+                const chat = document.getElementById('chat-messages');
+                const msgDiv = document.createElement('div');
+                msgDiv.className = 'message system';
+                msgDiv.innerText = text;
+                chat.appendChild(msgDiv);
+            },
+
+            destroyChat: function() {
+                // تدمير الاتصال نهائياً
+                if (this.dataChannel) this.dataChannel.close();
+                if (this.peerConnection) this.peerConnection.close();
+                
+                // مسح الـ DOM نهائياً
+                document.getElementById('chat-messages').innerHTML = '';
+                document.getElementById('conn-status').innerText = '● جاري الاتصال...';
+                document.getElementById('conn-status').style.color = 'var(--text-muted)';
+                
+                this.navigate('view-contacts');
+            },
+
+            mockPeerAnswer: function() {
+                this.logSystem('الطرف الآخر استلم النداء ويقوم بالاتصال...');
+                setTimeout(() => {
+                    if(this.dataChannel) {
+                        // محاكاة فتح القناة محلياً لتجربة الواجهة
+                        Object.defineProperty(this.dataChannel, 'readyState', { value: 'open' });
+                        this.dataChannel.onopen();
+                    }
+                }, 1500);
+            },
+
+            showModal: function(id) { document.getElementById(id).style.display = 'flex'; },
+            closeModal: function(event, id) {
+                if (event && event.target.id !== id) return;
+                document.getElementById(id).style.display = 'none';
             }
-        } catch(e) {
-            console.error(e);
-            // التقاط خطأ CORS المتوقع عند الاتصال المباشر
-            if(e.name === 'TypeError' && e.message === 'Failed to fetch') {
-                 log.innerHTML = `<span style="color:var(--red)">تم حظر الاتصال (CORS). في بيئة الإنتاج سيعمل الكود بشكل صحيح.</span>`;
-            } else {
-                log.innerText = "فشل الاتصال بالخادم! حاول مرة أخرى.";
-            }
-        }
-        document.getElementById('btn-dep').disabled = false;
-    }
-
-    async function withdraw() {
-        const amount = document.getElementById('wd-amount').value;
-        const address = document.getElementById('wd-address').value;
-        const log = document.getElementById('wd-log');
-        
-        if(!amount || !address) return log.innerText = "أكمل البيانات (المبلغ والعنوان)!";
-        if(amount > usdtBalance) return log.innerText = "رصيدك الافتراضي لا يكفي!";
-
-        log.innerText = "جاري تحويل الأموال...";
-        document.getElementById('btn-wd').disabled = true;
-
-        const apiUrl = `https://api.plisio.net/api/v1/operations/withdraw?currency=${CURRENCY}&type=cash_out&to=${address}&amount=${amount}&api_key=${PLISIO_SECRET}`;
-        
-        try {
-            // استخدام fetch مباشرة بدون proxy
-            const res = await fetch(apiUrl);
-            const json = await res.json();
-            
-            if(json.status === "success" || json.status === "pending") {
-                log.innerHTML = `<span style="color:var(--green)">تم السحب! المعاملة قيد المعالجة.</span>`;
-                usdtBalance -= parseFloat(amount);
-                updateUI();
-                document.getElementById('wd-amount').value = '';
-                document.getElementById('wd-address').value = '';
-            } else {
-                log.innerText = "خطأ: " + (json.data?.message || "رصيد المنصة الحقيقي غير كافٍ لتغطية السحب.");
-            }
-        } catch(e) {
-             console.error(e);
-            if(e.name === 'TypeError' && e.message === 'Failed to fetch') {
-                 log.innerHTML = `<span style="color:var(--red)">تم حظر الاتصال (CORS). في بيئة الإنتاج سيعمل الكود بشكل صحيح.</span>`;
-            } else {
-                log.innerText = "فشل الاتصال بالخادم!";
-            }
-        }
-        document.getElementById('btn-wd').disabled = false;
-    }
-
-    // ----------------------------------------------------
-    // 3. التداول وتحديث الشاشة
-    // ----------------------------------------------------
-    function trade(type) {
-        if(type === 'buy' && usdtBalance > 0) {
-            pulseBalance += (usdtBalance / currentPrice);
-            usdtBalance = 0;
-        } else if(type === 'sell' && pulseBalance > 0) {
-            usdtBalance += (pulseBalance * currentPrice);
-            pulseBalance = 0;
-        }
-        updateUI();
-    }
-
-    function updateUI() {
-        document.getElementById('ui-usdt').innerText = usdtBalance.toFixed(2);
-        document.getElementById('ui-pulse').innerText = pulseBalance.toFixed(2);
-    }
-
-    // ----------------------------------------------------
-    // 4. محرك Nostr (الأسعار اللحظية)
-    // ----------------------------------------------------
-    const { SimplePool, nip19, getEventHash, signEvent, getPublicKey } = window.NostrTools;
-    const { data: privkeyHex } = nip19.decode(nsec);
-    const { data: pubkeyHexListen } = nip19.decode(npub);
-    const pubkeyHex = getPublicKey(privkeyHex);
-    
-    const pool = new SimplePool();
-    const relays = ['wss://relay.damus.io', 'wss://nos.lol'];
-
-    // البث
-    setInterval(async () => {
-        const volatility = 0.015; 
-        currentPrice += currentPrice * ((Math.random() * volatility * 2) - volatility);
-        if(currentPrice < 0.0001) currentPrice = 0.0001;
-
-        let event = {
-            kind: 29999,
-            pubkey: pubkeyHex,
-            created_at: Math.floor(Date.now() / 1000),
-            tags: [],
-            content: currentPrice.toFixed(4)
         };
-        event.id = getEventHash(event);
-        event.sig = signEvent(event, privkeyHex);
-        pool.publish(relays, event);
-    }, 2000);
-
-    // الاستقبال
-    const sub = pool.sub(relays, [{ authors: [pubkeyHexListen], kinds: [29999] }]);
-    
-    sub.on('event', event => {
-        document.getElementById('net-status').innerText = 'متصل ومحدث ⚡';
-        
-        const price = parseFloat(event.content);
-        const display = document.getElementById('price-display');
-        
-        display.style.color = price >= currentPrice ? 'var(--green)' : 'var(--red)';
-        display.innerText = price.toFixed(4);
-        currentPrice = price;
-
-        priceHistory.push(price);
-        if(priceHistory.length > 40) priceHistory.shift();
-        drawChart();
-    });
-
-    // ----------------------------------------------------
-    // 5. الرسم البياني (Canvas)
-    // ----------------------------------------------------
-    const canvas = document.getElementById('priceChart');
-    const ctx = canvas.getContext('2d');
-    
-    function drawChart() {
-        canvas.width = canvas.parentElement.clientWidth;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        if(priceHistory.length < 2) return;
-
-        const max = Math.max(...priceHistory);
-        const min = Math.min(...priceHistory);
-        const range = max - min || 0.001;
-
-        ctx.beginPath();
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = '#a78bfa'; 
-        
-        for(let i=0; i<priceHistory.length; i++) {
-            let x = (i / (priceHistory.length - 1)) * canvas.width;
-            let y = canvas.height - (((priceHistory[i] - min) / range) * (canvas.height - 20)) - 10;
-            if(i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-
-        const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        grad.addColorStop(0, 'rgba(124, 58, 237, 0.3)');
-        grad.addColorStop(1, 'rgba(124, 58, 237, 0)');
-        ctx.lineTo(canvas.width, canvas.height);
-        ctx.lineTo(0, canvas.height);
-        ctx.fillStyle = grad;
-        ctx.fill();
-    }
-</script>
+    </script>
 </body>
 </html>

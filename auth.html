@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>إنشاء هوية — Ghost</title>
+<link rel="stylesheet" href="css/style.css">
+<meta name="theme-color" content="#000000">
+</head>
+<body>
+  <div class="app-shell">
+    <div class="center-col">
+      <div class="logo-orb"></div>
+      <div class="brand-title">مرحباً بك في Ghost</div>
+      <div class="tagline">لا حاجة لبريد إلكتروني أو رقم هاتف.<br>فقط اختر اسماً يظهر للأشخاص الذين تتواصل معهم.</div>
+
+      <input id="nameInput" class="field" style="margin-top:18px" placeholder="اسمك (يمكن تغييره لاحقاً)" maxlength="30" autofocus>
+
+      <button id="createBtn" class="btn">إنشاء حسابي</button>
+
+      <div class="warn-box" style="margin-top:10px">
+        🔑 عند الضغط على "إنشاء"، سيتم توليد مفتاح تشفير خاص بك <b>على هذا الجهاز فقط</b> ولن يغادره أبداً.
+        هذا المفتاح هو هويتك الوحيدة — لا يوجد "استرجاع كلمة مرور"، فإذا فقدت الجهاز أو مسحت بيانات المتصفح فقدت الحساب نهائياً.
+      </div>
+    </div>
+  </div>
+
+  <script src="js/store.js"></script>
+  <script type="module">
+    import * as NostrTools from 'https://esm.sh/nostr-tools@2.10.4';
+    window.NostrTools = NostrTools;
+
+    const btn = document.getElementById('createBtn');
+    const input = document.getElementById('nameInput');
+
+    btn.addEventListener('click', async () => {
+      const name = input.value.trim();
+      if (!name) { input.focus(); return; }
+      btn.disabled = true; btn.textContent = 'جاري توليد مفتاح التشفير...';
+
+      const sk = NostrTools.generateSecretKey();
+      const pk = NostrTools.getPublicKey(sk);
+      const identity = {
+        name,
+        privkeyHex: Array.from(sk).map(b => b.toString(16).padStart(2, '0')).join(''),
+        pubkeyHex: pk,
+        npub: NostrTools.nip19.npubEncode(pk),
+        createdAt: Date.now()
+      };
+      await Store.saveIdentity(identity);
+      window.location.href = 'contacts.html';
+    });
+
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') btn.click(); });
+  </script>
+</body>
+</html>

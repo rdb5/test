@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>اتصال جديد — Ghost</title>
+<link rel="stylesheet" href="css/style.css">
+<meta name="theme-color" content="#000000">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="topbar">
+      <button class="icon-btn" onclick="goBack()">→</button>
+      <h1>اتصال جديد</h1>
+      <div style="width:40px"></div>
+    </div>
+
+    <div style="display:flex;gap:8px;padding:0 16px 12px">
+      <button id="tabCreate" class="btn secondary" style="flex:1" onclick="showTab('create')">إنشاء رمزي</button>
+      <button id="tabScan" class="btn secondary" style="flex:1" onclick="showTab('scan')">مسح رمز</button>
+    </div>
+
+    <div id="paneCreate" style="padding:0 16px">
+      <div class="qr-frame"><div id="qr-canvas"></div></div>
+      <div class="tagline">اطلب من الشخص الآخر مسح هذا الرمز عبر تطبيق Ghost.<br>
+        الرمز صالح للاستخدام <b>مرة واحدة فقط</b> ولا يُخزَّن في أي مكان.</div>
+      <div class="warn-box" style="margin-top:12px">
+        ⚠️ ابقِ هذه الشاشة مفتوحة حتى تتم عملية المسح للحصول على أسرع اتصال.
+        سيبقى الرمز صالحاً على خوادم Nostr كبيانات مشفرة بالكامل لمدة تصل إلى 24 ساعة في حال لم يكن أي طرف متصلاً حالياً، ثم يُحذف تلقائياً.
+      </div>
+      <button class="btn ghost" style="margin-top:14px" onclick="regenerate()">توليد رمز جديد</button>
+    </div>
+
+    <div id="paneScan" style="padding:0 16px; display:none">
+      <video id="scanVideo" class="scan-video" muted playsinline></video>
+      <canvas id="scanCanvas" style="display:none"></canvas>
+      <button class="btn secondary" style="margin-top:12px" onclick="document.getElementById('fileInput').click()">
+        📁 أو اختر صورة الرمز من المعرض
+      </button>
+      <input id="fileInput" type="file" accept="image/*" style="display:none">
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="js/store.js"></script>
+  <script src="js/nostr-signal.js"></script>
+  <script src="js/qr-engine.js"></script>
+  <script>
+    let identity, signal, currentToken, camHandle;
+
+    // Dynamic import so we GUARANTEE nostr-tools is fully loaded before any
+    // code that depends on it runs (a <script type="module"> tag is deferred
+    // and would otherwise execute AFTER this classic script, causing silent
+    // failures like the QR never rendering).
+    async function loadNostrTools() {
+      if (!window.NostrTools) {
+        window.NostrTools = await import('https://esm.sh/nostr-tools@2.10.4');
+      }
+      return window.NostrTools;
+    }
+
+    function showToast(msg, ms = 3000) {
+      const t = document.getElementById('toast');
+      t.textContent = msg; t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), ms);
+    }
+
+    function goBack() { location.href = 'contacts.html'; }
+
+    function showTab(which) {
+      document.getElementById('paneCreate').style.display = which === 'create' ? 'block' : 'none';
+      document.getElementById('paneScan').style.display = which === 'scan' ? 'block' : 'none';
+      document.getElementById('tabCreate').style.background = which === 'create' ? 'var(--accent-dim)' : '';
+      document.getElementById('tabScan').style.background = which === 'scan' ? 'var(--accent-dim)' : '';
+      if (which === 'scan') startScanning(); else stopScanning();
+    }
+
+    async function regenerate() {
+      const relays = await signal.loadRelays();
+      const { token, encoded } = await QREngine.generateConnectPayload(identity, relays);
+      currentToken = token;
+      QREngine.renderToCanvas(document.getElementById('qr-canvas'), encoded);
+    }
+
+    function startScanning() {
+      const video = document.getElementById('scanVideo');
+      const canvas = document.getElementById('scanCanvas');
+      camHandle = QREngine.startCameraScan(video, canvas, onQRFound);
+    }
+    function stopScanning() { if (camHandle) camHandle.stop(); }
+
+    async function onQRFound(payload) {
+      stopScanning();
+      await completeHandshake(payload);
+    }
+
+    document.getElementById('fileInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const payload = await QREngine.scanFromImageFile(file);
+        await completeHandshake(payload);
+      } catch (err) {
+        showToast(err.message);
+      }
+    });
+
+    async function completeHandshake(payload) {
+      if (payload.pub === identity.pubkeyHex) { showToast('لا يمكنك إضافة نفسك'); return; }
+      if (await Store.isBlocked(payload.pub)) { showToast('لقد قمت بحظر هذا الشخص مسبقاً'); return; }
+
+      await signal.sendHandshake(payload.pub, payload.token, identity.name);
+      await Store.upsertContact({
+        pubkey: payload.pub, name: payload.name || 'مجهول',
+        lastActivity: Date.now(), online: false
+      });
+      showToast('تم الاتصال! جاري فتح المحادثة...');
+      setTimeout(() => { location.href = `chat.html?pub=${payload.pub}`; }, 700);
+    }
+
+    async function init() {
+      await loadNostrTools();
+      identity = await Store.getIdentity();
+      if (!identity) { location.href = 'auth.html'; return; }
+
+      signal = new NostrSignal(identity);
+      await signal.loadRelays();
+      signal.start();
+
+      // Someone scanned MY code -> add them as a contact automatically
+      signal.on(SIGNAL_KINDS.KIND_HANDSHAKE, async ({ from, token, name }) => {
+        if (token !== currentToken) return; // not my current one-time code
+        if (await Store.isBlocked(from)) return;
+        await Store.upsertContact({ pubkey: from, name: name || 'مجهول', lastActivity: Date.now(), online: false });
+        currentToken = null; // burn it - single use only
+        showToast(`${name || 'شخص جديد'} انضم! جاري فتح المحادثة...`);
+        setTimeout(() => { location.href = `chat.html?pub=${from}`; }, 700);
+      });
+
+      const params = new URLSearchParams(location.search);
+      showTab(params.get('mode') === 'scan' ? 'scan' : 'create');
+      await regenerate();
+    }
+    init();
+    window.addEventListener('pagehide', () => { stopScanning(); if (signal) signal.stop(); });
+  </script>
+</body>
+</html>

@@ -577,13 +577,45 @@
             downloadQR: () => {
                 const qrImg = document.querySelector('#qr-container img');
                 if (qrImg && qrImg.src) {
-                    const link = document.createElement('a');
-                    link.download = 'Ghost_Secret_Code.png';
-                    link.href = qrImg.src;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    showAlert("تم تحميل رمز QR. لا تنسَ أن صلاحيته تنتهي بمجرد استخدامه لمرة واحدة.", "نجاح");
+                    // إنشاء لوحة رسم (Canvas) لتصميم بطاقة احترافية للرمز
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    img.onload = () => {
+                        canvas.width = 400;
+                        canvas.height = 500;
+                        
+                        // رسم الخلفية الداكنة
+                        ctx.fillStyle = '#1c1c1e';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        
+                        // رسم العنوان
+                        ctx.fillStyle = '#32d74b';
+                        ctx.font = 'bold 30px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('GHOST P2P', 200, 50);
+                        
+                        // رسم خلفية بيضاء لرمز الـ QR لتسهيل قراءته
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(40, 80, 320, 320); 
+                        ctx.drawImage(img, 50, 90, 300, 300);
+                        
+                        // نصوص توضيحية سفلية
+                        ctx.fillStyle = '#8e8e93';
+                        ctx.font = '16px sans-serif';
+                        ctx.fillText('هذا الرمز للاستخدام مرة واحدة فقط', 200, 440);
+                        ctx.fillText('أرسله لصديقك ليمسحه عبر التطبيق للاتصال', 200, 470);
+                        
+                        // إنشاء الرابط وتنزيل الصورة
+                        const link = document.createElement('a');
+                        link.download = `Ghost_Invite_${Math.floor(Math.random()*10000)}.png`;
+                        link.href = canvas.toDataURL('image/png');
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        showAlert("تم حفظ الرمز كبطاقة صورة جاهزة للإرسال في جهازك.", "نجاح");
+                    };
+                    img.src = qrImg.src;
                 }
             },
             
@@ -654,6 +686,17 @@
                     html5QrCode = new Html5Qrcode("qr-reader");
                 }
 
+                // إيقاف الكاميرا أولاً إذا كانت تعمل لمنع أي تعارض أثناء تحليل الصورة
+                if (html5QrCode.isScanning) {
+                     html5QrCode.stop()
+                        .then(() => QREngine._processFileScan(file))
+                        .catch(() => QREngine._processFileScan(file));
+                } else {
+                     QREngine._processFileScan(file);
+                }
+                event.target.value = ''; // إعادة تعيين الحقل ليسمح باختيار نفس الصورة مجددا
+            },
+            _processFileScan: (file) => {
                 html5QrCode.scanFile(file, true)
                     .then(decodedText => {
                         if (decodedText.startsWith('ghost://')) {
@@ -666,10 +709,8 @@
                         }
                     })
                     .catch(err => {
-                        showAlert("لم يتم العثور على رمز QR صالح في هذه الصورة.");
+                        showAlert("لم يتم العثور على رمز QR صالح. تأكد من أن الصورة واضحة وليست مقصوصة.");
                     });
-                
-                event.target.value = ''; // إعادة تعيين الحقل
             },
             processScannedKey: async (tempPubkey) => {
                 // Send our REAL info to their TEMP pubkey via encrypted Nostr DM

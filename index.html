@@ -335,7 +335,7 @@
         function closeAlert() { document.getElementById('custom-alert').classList.add('hidden'); }
 
         // --- Core Application State ---
-        const NOSTR_RELAYS = ['wss://relay.damus.io', 'wss://nos.lol'];
+        const NOSTR_RELAYS = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.primal.net', 'wss://relay.snort.social'];
         
         const State = {
             keys: { priv: null, pub: null, npub: null },
@@ -578,6 +578,7 @@
                     if(contactData.pubkey && contactData.name) {
                         AppLogic.saveContact(contactData.pubkey, contactData.name);
                         UI.closeQR();
+                        showSystemNotification("صديق جديد", `تمت إضافة ${contactData.name} بنجاح!`);
                         showAlert(`تم إضافة ${contactData.name} بنجاح!`);
                         
                         // Send our real info back using their real pubkey to complete handshake
@@ -731,31 +732,34 @@
                 // Send our REAL info to their TEMP pubkey via encrypted Nostr DM
                 const payload = JSON.stringify({ type: 'handshake', pubkey: State.keys.pub, name: State.profile.name });
                 
+                showAlert("جاري معالجة الرمز وإرسال المفاتيح المشفرة... يرجى الانتظار.");
+                
                 // Send DM. The other side is listening on tempPubkey.
-                // We use our real privkey to sign, but encrypt it so only tempPubkey can read.
                 await NostrSignaler.sendDirectMessage(tempPubkey, payload);
                 
-                showAlert("تم إرسال بياناتك بأمان. في انتظار الرد من الطرف الآخر لإضافته...");
-                
-                // We expect a response to our REAL pubkey containing their REAL info
-                // (Handled by general Nostr listener)
+                setTimeout(() => {
+                    showAlert("تم إرسال الطلب للطرف الآخر. ستتم إضافته لجهات الاتصال فور وصول الرد التأكيدي.");
+                }, 2000);
             }
         };
 
         const NostrSignaler = {
-            pool: null,
-            relays: [],
+            sockets: {}, // Changed from pool/relays array to robust dictionary
             
             connect: () => {
-                // Simple WebSocket wrapper mimicking Relay Pool for signaling
-                // We connect to 2 default relays to ensure delivery
-                NostrSignaler.relays = NOSTR_RELAYS.map(url => {
+                NOSTR_RELAYS.forEach(url => NostrSignaler.initSocket(url));
+            },
+            
+            initSocket: (url) => {
+                try {
                     const ws = new WebSocket(url);
+                    NostrSignaler.sockets[url] = ws;
+                    
                     ws.onopen = () => {
                         console.log('Connected to relay:', url);
-                        // Subscribe to DMs addressed to our real pubkey (NIP-04)
-                        const subId = 'ghost-main-' + Math.random().toString(36).substring(7);
-                        const filter = { kinds: [4], '#p': [State.keys.pub], since: Math.floor(Date.now() / 1000) };
+                        const subId = 'ghost-main-' + State.keys.pub.substring(0, 8);
+                        // Using -300 seconds (5 mins) buffer to not miss pending handshakes
+                        const filter = { kinds: [4], '#p': [State.keys.pub], since: Math.floor(Date.now() / 1000) - 300 };
                         ws.send(JSON.stringify(["REQ", subId, filter]));
                     };
                     ws.onmessage = async (e) => {
@@ -765,33 +769,37 @@
                             await NostrSignaler.handleIncomingEvent(ev);
                         }
                     };
-                    return ws;
-                });
+                    ws.onclose = () => {
+                        // Auto-reconnect on drop
+                        setTimeout(() => NostrSignaler.initSocket(url), 3000);
+                    };
+                } catch(e) {}
             },
             
             listenToTempKey: (tempPriv, tempPub, callback) => {
                 const subId = 'ghost-temp-' + Math.random().toString(36).substring(7);
-                const filter = { kinds: [4], '#p': [tempPub], since: Math.floor(Date.now() / 1000) };
+                // Removed 'since' entirely for temp keys to prevent timing race conditions
+                const filter = { kinds: [4], '#p': [tempPub] };
                 
-                const tempRelays = NOSTR_RELAYS.map(url => {
-                    const ws = new WebSocket(url);
-                    ws.onopen = () => ws.send(JSON.stringify(["REQ", subId, filter]));
-                    ws.onmessage = async (e) => {
-                        const data = JSON.parse(e.data);
-                        if (data[0] === 'EVENT') {
-                            const ev = data[2];
-                            // Decrypt using tempPriv and sender's pubkey
-                            try {
-                                const decrypted = await window.NostrTools.nip04.decrypt(tempPriv, ev.pubkey, ev.content);
-                                const parsed = JSON.parse(decrypted);
-                                if (parsed.type === 'handshake') {
-                                    callback(parsed);
-                                    ws.close(); // Temp job done
-                                }
-                            } catch(err) { console.error("Temp Decrypt failed", err); }
-                        }
-                    };
-                    return ws;
+                NOSTR_RELAYS.forEach(url => {
+                    try {
+                        const ws = new WebSocket(url);
+                        ws.onopen = () => ws.send(JSON.stringify(["REQ", subId, filter]));
+                        ws.onmessage = async (e) => {
+                            const data = JSON.parse(e.data);
+                            if (data[0] === 'EVENT') {
+                                const ev = data[2];
+                                try {
+                                    const decrypted = await window.NostrTools.nip04.decrypt(tempPriv, ev.pubkey, ev.content);
+                                    const parsed = JSON.parse(decrypted);
+                                    if (parsed.type === 'handshake') {
+                                        callback(parsed);
+                                        ws.close();
+                                    }
+                                } catch(err) { /* ignore */ }
+                            }
+                        };
+                    } catch(e) {}
                 });
             },
 
@@ -804,7 +812,8 @@
                     if (msg.type === 'handshake' && msg.pubkey && msg.name) {
                         // Received handshake from scanner
                         AppLogic.saveContact(msg.pubkey, msg.name);
-                        showAlert(`تمت إضافة ${msg.name} لجهات الاتصال!`);
+                        showSystemNotification("صديق جديد", `تمت إضافة ${msg.name} لجهات الاتصال!`);
+                        showAlert(`نجاح: تمت إضافة ${msg.name} لجهات الاتصال بنجاح!`);
                         return;
                     }
 
@@ -825,14 +834,9 @@
                         // Pass to WebRTC engine if we are in chat with this person
                         if (State.activeChat === ev.pubkey) {
                             P2PEngine.handleSignal(msg);
-                        } else if (msg.type === 'rtc_offer') {
-                           // If we get an offer but aren't in chat, we could store it temporarily, 
-                           // but for max security, we require both to enter the room.
-                           // The notification prompts them to open the room.
-                           // Actually, let's auto-handle offer if they click notification.
                         }
                     }
-                } catch(e) { console.error("Decryption or handling failed", e); }
+                } catch(e) { /* ignore bad decrypts */ }
             },
 
             sendDirectMessage: async (targetPubkey, plainText) => {
@@ -850,12 +854,22 @@
                     event.id = window.NostrTools.getEventHash(event);
                     event.sig = window.NostrTools.signEvent(event, State.keys.priv);
                     
-                    // Publish to all connected relays
-                    NostrSignaler.relays.forEach(ws => {
-                        if(ws.readyState === WebSocket.OPEN) {
+                    let sentCount = 0;
+                    Object.values(NostrSignaler.sockets).forEach(ws => {
+                        if(ws && ws.readyState === WebSocket.OPEN) {
                             ws.send(JSON.stringify(["EVENT", event]));
+                            sentCount++;
                         }
                     });
+
+                    // Fallback if all sockets dropped
+                    if (sentCount === 0) {
+                        const fallbackWs = new WebSocket(NOSTR_RELAYS[0]);
+                        fallbackWs.onopen = () => {
+                            fallbackWs.send(JSON.stringify(["EVENT", event]));
+                            setTimeout(() => fallbackWs.close(), 1000);
+                        };
+                    }
                 } catch(e) { console.error("Send DM failed", e); }
             }
         };

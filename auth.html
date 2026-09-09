@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>DecentraMarket — Account</title>
+<link rel="stylesheet" href="css/variables.css" />
+<link rel="stylesheet" href="css/base.css" />
+<link rel="stylesheet" href="css/components.css" />
+<style>
+  .auth-page { min-height: 100dvh; display: flex; flex-direction: column; padding: var(--sp-5); }
+  .auth-card { max-width: 480px; margin: auto; width: 100%; }
+  .key-box {
+    background: var(--bg-elevated-2); border: 1.5px dashed var(--border-soft);
+    border-radius: var(--radius-md); padding: var(--sp-4);
+    font-family: monospace; font-size: var(--fs-sm); word-break: break-all;
+    color: var(--accent-strong);
+  }
+  .back-btn { margin-bottom: var(--sp-5); }
+  .step { display: none; }
+  .step.is-active { display: block; }
+</style>
+</head>
+<body>
+<div class="auth-page">
+  <a href="index.html" class="btn btn-icon back-btn" aria-label="back">←</a>
+
+  <div class="auth-card card">
+    <!-- Step: choose already handled via ?mode=, but keep a manual switch too -->
+
+    <!-- CREATE FLOW -->
+    <div id="stepCreateForm" class="step stack gap-4">
+      <h2 data-i18n="create_identity_title">أنشئ هويتك</h2>
+      <p data-i18n="create_identity_sub" class="text-secondary"></p>
+      <div class="field">
+        <label data-i18n="display_name">الاسم الظاهر</label>
+        <input id="displayNameInput" type="text" data-i18n-ph="display_name_ph" />
+      </div>
+      <button id="generateBtn" class="btn btn-primary btn-block" data-i18n="generate_key">توليد مفاتيحي</button>
+    </div>
+
+    <div id="stepShowKey" class="step stack gap-4">
+      <h2 data-i18n="your_recovery_key">مفتاح الاستعادة الخاص بك</h2>
+      <p data-i18n="recovery_warning" class="text-secondary"></p>
+      <div class="key-box" id="nsecDisplay"></div>
+      <button class="btn btn-ghost btn-block" id="copyKeyBtn">Copy</button>
+      <button class="btn btn-primary btn-block" id="confirmSavedBtn" data-i18n="ive_saved_it">حفظته، متابعة</button>
+    </div>
+
+    <!-- RESTORE FLOW -->
+    <div id="stepRestore" class="step stack gap-4">
+      <h2 data-i18n="restore_title">استعادة حسابك</h2>
+      <div class="field">
+        <label data-i18n="restore_sub">الصق مفتاح الاستعادة</label>
+        <textarea id="nsecInput" rows="3" placeholder="nsec1..."></textarea>
+      </div>
+      <p id="restoreError" class="text-secondary" style="color:#e5484d; display:none;"></p>
+      <button id="restoreBtn" class="btn btn-primary btn-block" data-i18n="restore_action">استعادة الحساب</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { createIdentity, restoreFromNsec } from "./js/identity/keygen.js";
+  import { initTheme } from "./js/theme.js";
+  import { applyTranslations } from "./js/i18n/translations.js";
+
+  initTheme();
+  applyTranslations();
+
+  const params = new URLSearchParams(location.search);
+  const mode = params.get("mode") || "create";
+
+  const steps = {
+    create: document.getElementById("stepCreateForm"),
+    showKey: document.getElementById("stepShowKey"),
+    restore: document.getElementById("stepRestore"),
+  };
+
+  function show(step) {
+    Object.values(steps).forEach((el) => el.classList.remove("is-active"));
+    steps[step].classList.add("is-active");
+  }
+  show(mode === "restore" ? "restore" : "create");
+
+  let pendingIdentity = null;
+
+  document.getElementById("generateBtn").addEventListener("click", () => {
+    const name = document.getElementById("displayNameInput").value.trim();
+    pendingIdentity = createIdentity(name);
+    document.getElementById("nsecDisplay").textContent = pendingIdentity.nsec;
+    show("showKey");
+  });
+
+  document.getElementById("copyKeyBtn").addEventListener("click", async () => {
+    await navigator.clipboard.writeText(pendingIdentity.nsec);
+    const btn = document.getElementById("copyKeyBtn");
+    const original = btn.textContent;
+    btn.textContent = "Copied ✓";
+    setTimeout(() => (btn.textContent = original), 1500);
+  });
+
+  document.getElementById("confirmSavedBtn").addEventListener("click", () => {
+    window.location.href = "onboarding.html";
+  });
+
+  document.getElementById("restoreBtn").addEventListener("click", () => {
+    const nsec = document.getElementById("nsecInput").value.trim();
+    const errEl = document.getElementById("restoreError");
+    try {
+      restoreFromNsec(nsec);
+      window.location.href = "marketplace/home.html";
+    } catch (e) {
+      errEl.textContent = "مفتاح غير صالح. تأكد أنه يبدأ بـ nsec1 وأنك نسخته كاملاً.";
+      errEl.style.display = "block";
+    }
+  });
+</script>
+</body>
+</html>

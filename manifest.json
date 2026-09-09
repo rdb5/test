@@ -1,0 +1,14 @@
+{
+  "name": "DecentraMarket",
+  "short_name": "DecentraMarket",
+  "description": "A decentralized marketplace — your identity, your data, your keys.",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#091540",
+  "theme_color": "#091540",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

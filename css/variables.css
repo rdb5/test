@@ -1,0 +1,92 @@
+/* ===================================================================
+   Design tokens — DecentraMarket
+   Palette source: #091540 · #1B2CC1 · #7692FF · #ABD2FA
+=================================================================== */
+
+:root {
+  /* -- Brand core (mode-independent) -- */
+  --brand-navy: #091540;
+  --brand-indigo: #1B2CC1;
+  --brand-periwinkle: #7692FF;
+  --brand-sky: #ABD2FA;
+
+  --brand-indigo-hover: #202fd8;
+  --brand-periwinkle-soft: rgba(118, 146, 255, 0.14);
+  --brand-sky-soft: rgba(171, 210, 250, 0.16);
+
+  /* -- Radii -- soft curves, never sharp */
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 26px;
+  --radius-xl: 34px;
+  --radius-pill: 999px;
+
+  /* -- Spacing scale -- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+  --sp-8: 64px;
+
+  /* -- Motion -- */
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 160ms;
+  --dur-med: 320ms;
+
+  /* -- Shadows (tinted, not neutral black) -- */
+  --shadow-sm: 0 2px 10px rgba(9, 21, 64, 0.10);
+  --shadow-md: 0 10px 30px rgba(9, 21, 64, 0.16);
+  --shadow-glow: 0 0 40px rgba(118, 146, 255, 0.28);
+
+  /* -- Type -- */
+  --font-latin: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-arabic: "IBM Plex Sans Arabic", "Plus Jakarta Sans", system-ui, sans-serif;
+
+  --fs-xs: 0.8rem;
+  --fs-sm: 0.9rem;
+  --fs-base: 1rem;
+  --fs-md: 1.15rem;
+  --fs-lg: 1.5rem;
+  --fs-xl: 2rem;
+  --fs-2xl: 2.75rem;
+}
+
+/* ---------- Dark mode (default) ---------- */
+:root,
+[data-theme="dark"] {
+  --bg-base: #070f30;
+  --bg-elevated: #0d1a4d;
+  --bg-elevated-2: #122067;
+  --bg-overlay: rgba(7, 15, 48, 0.72);
+
+  --text-primary: #f2f5ff;
+  --text-secondary: #b7c2ea;
+  --text-muted: #7c88b8;
+
+  --border-soft: rgba(118, 146, 255, 0.16);
+  --accent: var(--brand-periwinkle);
+  --accent-strong: #93aeff;
+  --cta-bg: var(--brand-indigo);
+  --cta-text: #ffffff;
+}
+
+/* ---------- Light mode ---------- */
+[data-theme="light"] {
+  --bg-base: #f7f9ff;
+  --bg-elevated: #ffffff;
+  --bg-elevated-2: #eef2ff;
+  --bg-overlay: rgba(247, 249, 255, 0.78);
+
+  --text-primary: #0b1440;
+  --text-secondary: #3c4a7a;
+  --text-muted: #7480a8;
+
+  --border-soft: rgba(9, 21, 64, 0.09);
+  --accent: var(--brand-indigo);
+  --accent-strong: #141fa8;
+  --cta-bg: var(--brand-indigo);
+  --cta-text: #ffffff;
+}

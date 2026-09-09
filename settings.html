@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ميدان — الإعدادات</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .view { display:none; }
+  .view.active { display:block; }
+  .switch-row { cursor:pointer; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <div id="header-mount"></div>
+
+  <!-- القائمة الرئيسية للإعدادات -->
+  <main class="content view active" id="view-main">
+
+    <div class="section-title">الحساب</div>
+    <ul>
+      <li class="list-row" data-nav="view-account"><div class="icon-wrap" data-i="user"></div><div class="body"><div class="title">معلومات الحساب</div><div class="sub">الاسم، السيرة الذاتية، اسم المستخدم</div></div><div class="chevron" data-i="chevron"></div></li>
+      <li class="list-row" data-nav="view-security"><div class="icon-wrap" data-i="shield"></div><div class="body"><div class="title">الأمان والخصوصية</div><div class="sub">المفتاح الخاص، الأجهزة المتصلة، الحظر</div></div><div class="chevron" data-i="chevron"></div></li>
+      <li class="list-row" data-nav="view-activity"><div class="icon-wrap" data-i="activity"></div><div class="body"><div class="title">نشاط الحساب والإحصائيات</div><div class="sub">سجل كامل بكل ما فعلته وشاهدته</div></div><div class="chevron" data-i="chevron"></div></li>
+    </ul>
+
+    <div class="section-title">التفضيلات</div>
+    <ul>
+      <li class="list-row" data-nav="view-notifs"><div class="icon-wrap" data-i="bell"></div><div class="body"><div class="title">الإشعارات</div><div class="sub">تحكم دقيق بكل نوع إشعار</div></div><div class="chevron" data-i="chevron"></div></li>
+      <li class="list-row" data-nav="view-algo"><div class="icon-wrap" data-i="activity"></div><div class="body"><div class="title">تفضيلات المحتوى والخوارزمية</div><div class="sub">كيف نختار ما يظهر لك</div></div><div class="chevron" data-i="chevron"></div></li>
+      <li class="list-row" data-nav="view-appearance"><div class="icon-wrap" data-i="eye"></div><div class="body"><div class="title">المظهر</div><div class="sub">الوضع الداكن، حجم الخط</div></div><div class="chevron" data-i="chevron"></div></li>
+    </ul>
+
+    <div class="section-title">أخرى</div>
+    <ul>
+      <li class="list-row"><div class="icon-wrap" data-i="bookmark"></div><div class="body"><div class="title">العناصر المحفوظة</div></div><div class="chevron" data-i="chevron"></div></li>
+      <li class="list-row"><div class="icon-wrap" data-i="key"></div><div class="body"><div class="title">مركز المساعدة</div></div><div class="chevron" data-i="chevron"></div></li>
+      <li class="list-row" onclick="location.href='index.html'"><div class="icon-wrap" data-i="logout"></div><div class="body"><div class="title" style="color:var(--danger)">تسجيل الخروج</div></div></li>
+    </ul>
+  </main>
+
+  <!-- معلومات الحساب -->
+  <main class="content view" id="view-account">
+    <div class="section-pad">
+      <div class="field"><label>الاسم المعروض</label><input type="text" value="سارة العتيبي"></div>
+      <div class="field"><label>اسم المستخدم</label><input type="text" value="sara"></div>
+      <div class="field"><label>السيرة الذاتية</label><textarea rows="3">أشارك أعمالي الفنية ولحظات يومي هنا.</textarea></div>
+      <button class="btn btn-primary">حفظ التغييرات</button>
+    </div>
+  </main>
+
+  <!-- الأمان -->
+  <main class="content view" id="view-security">
+    <div class="trust-strip" data-trust></div>
+    <div class="section-title">مفتاحك الخاص</div>
+    <div class="section-pad" style="padding-top:0">
+      <div class="key-box">نجم-٧٧٤١-صقر-٢٠٨-وادي-٩٩٣-قمر</div>
+      <button class="btn btn-outline">عرض المفتاح كاملاً</button>
+    </div>
+    <div class="section-title">الأجهزة المتصلة</div>
+    <ul>
+      <li class="list-row"><div class="icon-wrap" data-i="check"></div><div class="body"><div class="title">هاتف — هذا الجهاز</div><div class="sub">آخر نشاط: الآن</div></div></li>
+      <li class="list-row"><div class="icon-wrap" data-i="user"></div><div class="body"><div class="title">حاسوب محمول</div><div class="sub">آخر نشاط: قبل يومين</div></div><button class="btn btn-danger-outline btn-sm">إزالة</button></li>
+    </ul>
+    <div class="section-title">الخصوصية</div>
+    <ul>
+      <li class="list-row switch-row"><div class="body"><div class="title">من يمكنه مراسلتي</div><div class="sub">الجميع</div></div><div class="chevron" data-i="chevron"></div></li>
+      <li class="list-row switch-row"><div class="body"><div class="title">إخفاء حالة "متصل الآن"</div></div><div class="switch" data-switch></div></li>
+      <li class="list-row switch-row"><div class="body"><div class="title">إخفاء قائمة المتابعين</div></div><div class="switch" data-switch></div></li>
+    </ul>
+  </main>
+
+  <!-- نشاط الحساب -->
+  <main class="content view" id="view-activity">
+    <div class="stat-grid">
+      <div class="stat-cell"><div class="num">86</div><div class="lbl">منشور</div></div>
+      <div class="stat-cell"><div class="num">412</div><div class="lbl">إعجاب أُرسل</div></div>
+      <div class="stat-cell"><div class="num">57</div><div class="lbl">تعليق</div></div>
+    </div>
+    <div class="section-title">سجل النشاط التفصيلي</div>
+    <ul>
+      <li class="list-row"><div class="icon-wrap" data-i="like"></div><div class="body"><div class="title">أعجبت بمنشور لـ خالد المطيري</div><div class="sub">قبل ٣ ساعات</div></div></li>
+      <li class="list-row"><div class="icon-wrap" data-i="comment"></div><div class="body"><div class="title">علّقت على منشور في "مطبخ بيتي"</div><div class="sub">أمس</div></div></li>
+      <li class="list-row"><div class="icon-wrap" data-i="user"></div><div class="body"><div class="title">بدأت متابعة نور حسن</div><div class="sub">قبل يومين</div></div></li>
+      <li class="list-row"><div class="icon-wrap" data-i="shield"></div><div class="body"><div class="title">تسجيل دخول من جهاز جديد</div><div class="sub">قبل ٣ أيام</div></div></li>
+    </ul>
+  </main>
+
+  <!-- الإشعارات -->
+  <main class="content view" id="view-notifs">
+    <div class="section-title">تفاعلات</div>
+    <ul>
+      <li class="list-row"><div class="body"><div class="title">الإعجابات</div></div><div class="switch on" data-switch></div></li>
+      <li class="list-row"><div class="body"><div class="title">التعليقات</div></div><div class="switch on" data-switch></div></li>
+      <li class="list-row"><div class="body"><div class="title">المتابعون الجدد</div></div><div class="switch on" data-switch></div></li>
+    </ul>
+    <div class="section-title">المجتمعات</div>
+    <ul>
+      <li class="list-row"><div class="body"><div class="title">نشاط المجموعات</div></div><div class="switch on" data-switch></div></li>
+      <li class="list-row"><div class="body"><div class="title">تحديثات الصفحات</div></div><div class="switch" data-switch></div></li>
+    </ul>
+    <div class="section-title">الرسائل والأمان</div>
+    <ul>
+      <li class="list-row"><div class="body"><div class="title">رسائل جديدة</div></div><div class="switch on" data-switch></div></li>
+      <li class="list-row"><div class="body"><div class="title">تنبيهات تسجيل الدخول</div></div><div class="switch on" data-switch></div></li>
+    </ul>
+  </main>
+
+  <!-- الخوارزمية -->
+  <main class="content view" id="view-algo">
+    <div class="section-pad">
+      <p style="font-size:13.5px;color:var(--text-dim);line-height:1.7">
+        يعتمد ترتيب المحتوى الذي تراه على تفاعلك الفعلي فقط — لا على أي مقابل مادي من صانع المحتوى.
+        يمكنك التحكم في مدى تأثير كل عامل:
+      </p>
+    </div>
+    <ul>
+      <li class="list-row"><div class="body"><div class="title">إعطاء أولوية لمن أتابعهم</div></div><div class="switch on" data-switch></div></li>
+      <li class="list-row"><div class="body"><div class="title">اكتشاف حسابات جديدة وصغيرة</div><div class="sub">يمنح فرصة عادلة لصنّاع المحتوى الناشئين</div></div><div class="switch on" data-switch></div></li>
+      <li class="list-row"><div class="body"><div class="title">تقليل المحتوى المثير للجدل</div></div><div class="switch on" data-switch></div></li>
+    </ul>
+  </main>
+
+  <!-- المظهر -->
+  <main class="content view" id="view-appearance">
+    <ul>
+      <li class="list-row"><div class="body"><div class="title">الوضع الداكن</div></div><div class="switch on" data-switch></div></li>
+      <li class="list-row"><div class="body"><div class="title">تقليل الحركة</div></div><div class="switch" data-switch></div></li>
+    </ul>
+  </main>
+
+  <div id="nav-mount"></div>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+  mountShell({ active: '', title: 'الإعدادات', page: 'settings' });
+
+  document.querySelectorAll('[data-i]').forEach(el => el.innerHTML = icon(el.dataset.i));
+  document.querySelectorAll('[data-trust]').forEach(el => el.innerHTML = icon('lock') + ' مفتاحك محفوظ محليًا فقط ولا يغادر جهازك دون إذنك');
+
+  document.querySelectorAll('[data-nav]').forEach(row => {
+    row.addEventListener('click', () => {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById(row.dataset.nav).classList.add('active');
+    });
+  });
+
+  // زر رجوع أعلى كل صفحة فرعية في الإعدادات
+  document.querySelectorAll('main.view:not(#view-main)').forEach(v => {
+    const backRow = document.createElement('div');
+    backRow.className = 'list-row';
+    backRow.style.cursor = 'pointer';
+    backRow.innerHTML = `<div class="icon-wrap">${icon('back')}</div><div class="body"><div class="title">رجوع إلى الإعدادات</div></div>`;
+    backRow.addEventListener('click', () => {
+      document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
+      document.getElementById('view-main').classList.add('active');
+    });
+    v.prepend(backRow);
+  });
+
+  document.querySelectorAll('[data-switch]').forEach(sw => {
+    sw.addEventListener('click', () => toggleSwitch(sw));
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ميدان — حسابي</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .profile-head { padding: 20px 16px 0; text-align:center; }
+  .profile-head .handle { color:var(--text-faint); font-size:13px; margin-top:4px; }
+  .profile-head .bio { font-size:14px; color:var(--text-dim); line-height:1.6; margin:12px 0; }
+  .profile-actions { display:flex; gap:8px; padding:0 16px 16px; }
+  .key-strip {
+    margin:0 16px 16px; padding:10px 14px; background:var(--surface);
+    border:1px solid var(--hairline); border-radius:8px;
+    display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-dim);
+  }
+  .key-strip svg { width:14px;height:14px; color:var(--accent); flex-shrink:0; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <div id="header-mount"></div>
+
+  <main class="content">
+    <div class="profile-head">
+      <div class="avatar lg" style="margin:0 auto">أ</div>
+      <h2 style="margin-top:14px">أنت</h2>
+      <div class="handle">@you · انضممت هذا الشهر</div>
+      <div class="bio">هذه مساحتك. عدّل السيرة الذاتية من الإعدادات لتخبر الآخرين بمن أنت.</div>
+    </div>
+
+    <div class="key-strip" id="key-strip"></div>
+
+    <div class="stat-grid">
+      <div class="stat-cell"><div class="num">86</div><div class="lbl">منشور</div></div>
+      <div class="stat-cell"><div class="num">1.2ألف</div><div class="lbl">متابع</div></div>
+      <div class="stat-cell"><div class="num">340</div><div class="lbl">متابَع</div></div>
+    </div>
+
+    <div class="profile-actions">
+      <button class="btn btn-outline" onclick="location.href='settings.html'">تعديل الملف الشخصي</button>
+      <button class="btn btn-ghost" style="width:auto;padding:12px 16px" id="stats-btn"></button>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active">منشوراتي</div>
+      <div class="tab">الصور</div>
+      <div class="tab">المحفوظات</div>
+    </div>
+
+    <div id="feed-mount"></div>
+  </main>
+
+  <div id="nav-mount"></div>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+  mountShell({ active: 'profile', title: 'حسابي' });
+  renderFeed('feed-mount');
+  document.getElementById('key-strip').innerHTML = icon('lock') + ' هويتك محمية بمفتاحك الخاص — لا يمكن لأي منصة أخرى الوصول إلى بياناتك';
+  document.getElementById('stats-btn').innerHTML = icon('activity');
+  document.getElementById('stats-btn').onclick = () => location.href = 'settings.html#activity';
+</script>
+</body>
+</html>

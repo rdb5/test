@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ميدان — منصة تواصل خاصة بك</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  body { padding: 0; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .link-btn { color: var(--accent); font-weight: 700; background: none; border: none; font-size: 13.5px; }
+  .copy-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+</style>
+</head>
+<body>
+
+<!-- شاشة الترحيب -->
+<div class="screen active" id="screen-welcome">
+  <div class="auth-wrap">
+    <div class="auth-logo">
+      <div class="mark">${''}</div>
+      <h1>ميدان</h1>
+      <p>مساحتك الخاصة. لا أحد يرى محتواك سواك ومن تختار.</p>
+    </div>
+
+    <button class="btn btn-primary" style="margin-bottom:10px" onclick="showScreen('screen-create')">إنشاء حساب جديد</button>
+    <button class="btn btn-outline" onclick="showScreen('screen-login')">لدي حساب بالفعل</button>
+
+    <div class="divider-or">أو</div>
+    <p style="text-align:center;font-size:12px;color:var(--text-faint);line-height:1.7">
+      بإنشائك حسابًا، أنت توافق على أن هويتك مملوكة لك بالكامل —
+      لا كلمة مرور محفوظة لدى أي جهة، ولا بيانات يمكن الوصول إليها بدون مفتاحك الخاص.
+    </p>
+  </div>
+</div>
+
+<!-- شاشة إنشاء حساب -->
+<div class="screen" id="screen-create">
+  <div class="auth-wrap">
+    <button class="icon-btn" style="margin-bottom:16px" onclick="showScreen('screen-welcome')">${''}</button>
+    <div class="auth-logo" style="margin-bottom:28px">
+      <h1 style="font-size:22px">إنشاء هويتك</h1>
+      <p>هذه هي بياناتك الوحيدة لإثبات ملكية حسابك. لا يمكن لأحد استرجاعها نيابةً عنك — احفظها في مكان آمن.</p>
+    </div>
+
+    <div class="field">
+      <label>الاسم المعروض</label>
+      <input type="text" placeholder="مثال: سارة العتيبي">
+    </div>
+    <div class="field">
+      <label>اسم المستخدم</label>
+      <input type="text" placeholder="sara">
+    </div>
+
+    <div class="field">
+      <label>مفتاحك الخاص — لا تشاركه مع أحد</label>
+      <div class="key-box" id="generated-key">
+        نجم-٧٧٤١-صقر-٢٠٨-وادي-٩٩٣-قمر
+      </div>
+      <div class="copy-row">
+        <button class="btn btn-ghost btn-sm" onclick="copyKey()">نسخ المفتاح</button>
+        <span class="hint" style="margin:0">تم إنشاؤه محليًا على جهازك</span>
+      </div>
+    </div>
+
+    <div class="field" style="display:flex;align-items:center;gap:10px;background:var(--surface);padding:12px 14px;border-radius:8px;border:1px solid var(--hairline)">
+      <input type="checkbox" id="confirm-saved" style="width:auto;accent-color:var(--accent)">
+      <label for="confirm-saved" style="margin:0;font-size:13px;color:var(--text-dim);font-weight:500">لقد حفظت مفتاحي في مكان آمن</label>
+    </div>
+
+    <button class="btn btn-primary" onclick="location.href='feed.html'">إنشاء الحساب والدخول</button>
+  </div>
+</div>
+
+<!-- شاشة تسجيل الدخول -->
+<div class="screen" id="screen-login">
+  <div class="auth-wrap">
+    <button class="icon-btn" style="margin-bottom:16px" onclick="showScreen('screen-welcome')">${''}</button>
+    <div class="auth-logo" style="margin-bottom:28px">
+      <h1 style="font-size:22px">تسجيل الدخول</h1>
+      <p>أدخل مفتاحك الخاص للوصول إلى حسابك من أي جهاز.</p>
+    </div>
+
+    <div class="field">
+      <label>المفتاح الخاص</label>
+      <textarea rows="3" placeholder="أدخل مفتاحك هنا..."></textarea>
+      <div class="hint">${''} يُستخدم هذا المفتاح فقط على جهازك لفتح حسابك، ولا يُرسل إلى أي خادم مركزي.</div>
+    </div>
+
+    <button class="btn btn-primary" onclick="location.href='feed.html'">دخول</button>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+  function copyKey() {
+    const text = document.getElementById('generated-key').textContent.trim();
+    navigator.clipboard?.writeText(text);
+    event.target.textContent = 'تم النسخ ✓';
+    setTimeout(() => { event.target.textContent = 'نسخ المفتاح'; }, 1500);
+  }
+  // تعبئة الأيقونات بعد تحميل app.js
+  document.querySelector('#screen-welcome .mark').innerHTML = icon('lock');
+  document.querySelectorAll('#screen-create .icon-btn, #screen-login .icon-btn').forEach(b => b.innerHTML = icon('back'));
+</script>
+</body>
+</html>
